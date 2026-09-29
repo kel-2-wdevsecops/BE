@@ -1,0 +1,128 @@
+# Simpan file ini di: .github/workflows/deploy.yml
+# Registry: GHCR (ghcr.io) -- private package gratis tanpa batas jumlah,
+# autentikasi memakai GITHUB_TOKEN bawaan Actions, tidak perlu secret tambahan.
+# Build lokal di laptop tetap bebas memakai Podman, image yang dihasilkan
+# tetap OCI-compliant sehingga tidak ada masalah kompatibilitas dengan Docker.
+# Job "deploy" berjalan di self-hosted runner Windows, sehingga memakai
+# sintaks PowerShell (pwsh), bukan bash -- ini yang membedakan dari versi
+# sebelumnya yang keliru diasumsikan berjalan di Linux.
+
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  IMAGE_NAME: ghcr.io/kel-2-wdevsecops/BE
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+
+      - name: SAST scan dengan Semgrep
+        continue-on-error: true
+        run: |
+          pip install semgrep --quiet
+          semgrep --config=p/owasp-top-ten .
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+
+      - name: Login ke GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build dan push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+
+      - name: Login ke GHCR di server
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validasi compose.yaml sebelum diterapkan
+        shell: powershell
+        run: docker compose -f "$env:GITHUB_WORKSPACE\compose.yaml" config --quiet
+
+      - name: Sinkronkan compose.yaml ke server jika ada perubahan
+        shell: powershell
+        run: |
+          $sumber = Get-FileHash "$env:GITHUB_WORKSPACE\compose.yaml"
+          $tujuanAda = Test-Path "D:\.server\skopia\compose.yaml"
+          $tujuan = if ($tujuanAda) { Get-FileHash "D:\.server\skopia\compose.yaml" } else { $null }
+
+          if (-not $tujuanAda -or $sumber.Hash -ne $tujuan.Hash) {
+            Write-Host "Konfigurasi berbeda, menyalin versi baru ke server."
+            Copy-Item -Path "$env:GITHUB_WORKSPACE\compose.yaml" -Destination "D:\.server\skopia\compose.yaml" -Force
+          } else {
+            Write-Host "Tidak ada perubahan pada compose.yaml, penyalinan dilewati."
+          }
+
+      - name: Pull image terbaru
+        shell: powershell
+        run: docker pull ${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy dengan docker compose
+        shell: powershell
+        run: |
+          cd D:\.server\skopia
+          docker compose pull skopia
+          docker compose up -d skopia 
+
+      - name: Health check
+        shell: powershell
+        run: |
+          $success = $false
+          for ($i = 1; $i -le 5; $i++) {
+            Start-Sleep -Seconds 5
+            curl.exe -fs http://localhost:3007/api/v1/health
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Aplikasi sehat."
+              $success = $true
+              break
+            }
+            Write-Host "Percobaan $i gagal, mencoba lagi..."
+          }
+          if (-not $success) {
+            Write-Host "Aplikasi tidak merespons setelah 5 kali percobaan."
+            exit 1
+          }
+
+      - name: Notifikasi sukses
+        if: success()
+        shell: powershell
+        run: |
+         curl.exe -d "Deploy berhasil: commit ${{ github.sha }}" ntfy.sh/Deploy-Success
+
+      - name: Notifikasi gagal
+        if: failure()
+        shell: powershell
+        run: |
+         curl.exe -d "Deploy GAGAL: commit ${{ github.sha }}" ntfy.sh/Deploy-Failure
