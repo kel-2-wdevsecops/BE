@@ -9,7 +9,10 @@
 # Alur: security -> test -> build (push) -> deploy
 #   security : SAST (Semgrep), secret scan (Gitleaks), SCA (Trivy fs)
 #   test     : unit test, npm audit, SBOM, scan image (Trivy), DAST (ZAP baseline)
-#   build    : push image ke GHCR, hanya jika security dan test lolos
+#   build    : push image ke GHCR, sign (Cosign) dan provenance (SLSA),
+#              hanya jika security dan test lolos
+#   deploy   : policy admission (registry, tanda tangan, provenance) lalu deploy
+#              berdasarkan digest yang terverifikasi
 
 name: Build and Deploy
 
@@ -135,6 +138,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write     # identitas OIDC untuk Cosign keyless dan attestation
+      attestations: write # menyimpan attestation provenance
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Checkout kode
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
@@ -147,6 +154,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build dan push image
+        id: push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -155,9 +163,26 @@ jobs:
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
+      - name: Pasang Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image dengan Cosign (keyless)
+        run: cosign sign --yes ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+
+      - name: Buat attestation provenance (SLSA)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
   deploy:
     needs: build
     runs-on: self-hosted
+    env:
+      # Hanya tanda tangan dari workflow ini, di branch main, yang dipercaya.
+      SIGNER_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@refs/heads/main
+      IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
     steps:
       - name: Checkout kode
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
@@ -168,6 +193,44 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pasang Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Policy admission - registry dan digest
+        shell: powershell
+        run: |
+          if (-not "${{ env.IMAGE_NAME }}".StartsWith("ghcr.io/kel-2-wdevsecops/")) {
+            Write-Host "DITOLAK: image bukan dari registry yang diizinkan."
+            exit 1
+          }
+          if ("$env:IMAGE_DIGEST" -notmatch '^sha256:[0-9a-f]{64}$') {
+            Write-Host "DITOLAK: digest image tidak valid atau kosong."
+            exit 1
+          }
+          Write-Host "Kebijakan registry dan digest terpenuhi."
+
+      - name: Policy admission - verifikasi tanda tangan
+        shell: powershell
+        run: |
+          cosign verify "${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST" `
+            --certificate-identity "$env:SIGNER_IDENTITY" `
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "DITOLAK: tanda tangan image tidak valid."
+            exit 1
+          }
+
+      - name: Policy admission - verifikasi provenance
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh attestation verify "oci://${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST" --repo "${{ github.repository }}"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "DITOLAK: provenance image tidak valid."
+            exit 1
+          }
 
       - name: Validasi compose.yaml sebelum diterapkan
         shell: powershell
@@ -187,16 +250,19 @@ jobs:
             Write-Host "Tidak ada perubahan pada compose.yaml, penyalinan dilewati."
           }
 
-      - name: Pull image terbaru
+      - name: Pull image yang sudah terverifikasi (berdasarkan digest)
         shell: powershell
-        run: docker pull ${{ env.IMAGE_NAME }}:latest
+        run: |
+          docker pull "${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST"
+          # compose memakai :latest, arahkan ke image terverifikasi tersebut
+          docker tag "${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST" "${{ env.IMAGE_NAME }}:latest"
 
       - name: Deploy dengan docker compose
         shell: powershell
         run: |
           cd D:\.server\kuliah\d4\devsecops\uts
-          docker compose pull BE
-          docker compose up -d BE
+          # --pull never: jangan menarik ulang latest dari registry
+          docker compose up -d --pull never BE
 
       - name: Health check
         shell: powershell
