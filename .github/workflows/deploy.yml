@@ -4,31 +4,133 @@
 # Build lokal di laptop tetap bebas memakai Podman, image yang dihasilkan
 # tetap OCI-compliant sehingga tidak ada masalah kompatibilitas dengan Docker.
 # Job "deploy" berjalan di self-hosted runner Windows, sehingga memakai
-# sintaks PowerShell (pwsh), bukan bash -- ini yang membedakan dari versi
-# sebelumnya yang keliru diasumsikan berjalan di Linux.
+# sintaks PowerShell (pwsh), bukan bash.
+#
+# Alur: security -> test -> build (push) -> deploy
+#   security : SAST (Semgrep), secret scan (Gitleaks), SCA (Trivy fs)
+#   test     : unit test, npm audit, SBOM, scan image (Trivy), DAST (ZAP baseline)
+#   build    : push image ke GHCR, hanya jika security dan test lolos
 
 name: Build and Deploy
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
 
 env:
-  IMAGE_NAME: ghcr.io/kel-2-wdevsecops/BE
+  # GHCR mewajibkan nama image huruf kecil semua.
+  IMAGE_NAME: ghcr.io/kel-2-wdevsecops/be
+  APP_PORT: 3008
 
 jobs:
   security:
+    name: Security (SAST, Secret Scan, SCA)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+        with:
+          fetch-depth: 0 # gitleaks perlu seluruh riwayat commit
+
+      - name: SAST scan dengan Semgrep
+        run: |
+          pip install semgrep --quiet
+          semgrep --config=p/owasp-top-ten --config=p/nodejs --error .
+
+      - name: Secret scan dengan Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: SCA scan dependency dengan Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  test:
+    name: Test (Unit, SBOM, Image Scan, DAST)
+    needs: security
     runs-on: ubuntu-latest
     steps:
       - name: Checkout kode
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
 
-      - name: SAST scan dengan Semgrep
-        continue-on-error: true
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependency
+        run: npm ci
+
+      - name: Unit test
+        run: npm test --if-present
+
+      - name: Audit dependency production
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          artifact-name: sbom.cdx.json
+
+      - name: Build image lokal untuk pengujian
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:test
+
+      - name: Scan image dengan Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:test
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Jalankan container untuk DAST
         run: |
-          pip install semgrep --quiet
-          semgrep --config=p/owasp-top-ten .
+          docker run -d --name app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
+            -e PORT=${{ env.APP_PORT }} ${{ env.IMAGE_NAME }}:test
+          for i in $(seq 1 15); do
+            curl -fs http://localhost:${{ env.APP_PORT }}/api/v1/health && exit 0
+            sleep 2
+          done
+          docker logs app
+          exit 1
+
+      - name: DAST dengan OWASP ZAP baseline
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://localhost:${{ env.APP_PORT }}
+          allow_issue_writing: false
+          fail_action: false # ubah ke true setelah temuan awal dibereskan
+          artifact_name: zap-report
+
+      - name: Hentikan container
+        if: always()
+        run: docker rm -f app
+
   build:
+    name: Build dan push image
+    needs: [security, test]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,12 +177,12 @@ jobs:
         shell: powershell
         run: |
           $sumber = Get-FileHash "$env:GITHUB_WORKSPACE\compose.yaml"
-          $tujuanAda = Test-Path "D:\.server\skopia\compose.yaml"
-          $tujuan = if ($tujuanAda) { Get-FileHash "D:\.server\skopia\compose.yaml" } else { $null }
+          $tujuanAda = Test-Path "D:\.server\kuliah\d4\devsecops\uts\compose.yaml"
+          $tujuan = if ($tujuanAda) { Get-FileHash "D:\.server\kuliah\d4\devsecops\uts\compose.yaml" } else { $null }
 
           if (-not $tujuanAda -or $sumber.Hash -ne $tujuan.Hash) {
             Write-Host "Konfigurasi berbeda, menyalin versi baru ke server."
-            Copy-Item -Path "$env:GITHUB_WORKSPACE\compose.yaml" -Destination "D:\.server\skopia\compose.yaml" -Force
+            Copy-Item -Path "$env:GITHUB_WORKSPACE\compose.yaml" -Destination "D:\.server\kuliah\d4\devsecops\uts\compose.yaml" -Force
           } else {
             Write-Host "Tidak ada perubahan pada compose.yaml, penyalinan dilewati."
           }
@@ -92,9 +194,9 @@ jobs:
       - name: Deploy dengan docker compose
         shell: powershell
         run: |
-          cd D:\.server\skopia
-          docker compose pull skopia
-          docker compose up -d skopia 
+          cd D:\.server\kuliah\d4\devsecops\uts
+          docker compose pull BE
+          docker compose up -d BE
 
       - name: Health check
         shell: powershell
@@ -102,7 +204,7 @@ jobs:
           $success = $false
           for ($i = 1; $i -le 5; $i++) {
             Start-Sleep -Seconds 5
-            curl.exe -fs http://localhost:3007/api/v1/health
+            curl.exe -fs http://localhost:3008/api/v1/health
             if ($LASTEXITCODE -eq 0) {
               Write-Host "Aplikasi sehat."
               $success = $true
