@@ -10,8 +10,11 @@ export function errorMiddleware(
 ): void {
   // Zod validation error
   if (err instanceof ZodError) {
-    const errors = err.errors.reduce<Record<string, string>>(
-      (acc, e) => ({ ...acc, [e.path.join('.')]: e.message }),
+    // zod 4: daftar error ada di `issues`; path bisa berisi symbol. Path
+    // kosong = seluruh body salah (Express 5: req.body undefined kalau
+    // request tidak membawa body JSON).
+    const errors = err.issues.reduce<Record<string, string>>(
+      (acc, e) => ({ ...acc, [e.path.map(String).join('.') || 'body']: e.message }),
       {},
     );
     res.status(422).json({ success: false, message: 'Validation failed', data: null, errors });

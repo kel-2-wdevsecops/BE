@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
 import { ApiResponse } from '../../utils/apiResponse';
 import { asyncHandler } from '../../utils/asyncHandler';
+import { strParam } from '../../utils/validators';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './users.dto';
+
+const id = (req: Request) => strParam(req.params.id, 'User');
 
 export const UsersController = {
   index: asyncHandler(async (req: Request, res: Response) => {
@@ -11,7 +14,7 @@ export const UsersController = {
   }),
 
   show: asyncHandler(async (req: Request, res: Response) => {
-    ApiResponse.success(res, await UsersService.findById(req.params.id));
+    ApiResponse.success(res, await UsersService.findById(id(req)));
   }),
 
   store: asyncHandler(async (req: Request, res: Response) => {
@@ -21,11 +24,11 @@ export const UsersController = {
 
   update: asyncHandler(async (req: Request, res: Response) => {
     const input = UpdateUserDto.parse(req.body);
-    ApiResponse.success(res, await UsersService.update(req.params.id, input), 'User updated successfully.');
+    ApiResponse.success(res, await UsersService.update(id(req), input), 'User updated successfully.');
   }),
 
   destroy: asyncHandler(async (req: Request, res: Response) => {
-    await UsersService.delete(req.params.id, req.userId!);
+    await UsersService.delete(id(req), req.userId!);
     ApiResponse.noContent(res, 'User deleted successfully.');
   }),
 };

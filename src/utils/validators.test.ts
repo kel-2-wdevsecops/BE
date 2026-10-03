@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { intParam, isoDate, money, optStr, searchQuery } from './validators';
+import { intParam, isoDate, money, optStr, searchQuery, strParam } from './validators';
 
 describe('money', () => {
   it.each([['136.00', '136.00'], [0.29, '0.29'], [100, '100'], ['99999999.99', '99999999.99']])(
@@ -37,6 +37,16 @@ describe('intParam', () => {
 
   it.each(['abc', '0', '-1', '1.5', '99999999999'])('id "%s" dijawab 404', (value) => {
     expect(() => intParam(value, 'Customer')).toThrow(expect.objectContaining({ statusCode: 404 }));
+  });
+});
+
+describe('strParam', () => {
+  it('meneruskan string non-kosong', () => {
+    expect(strParam('1', 'Office')).toBe('1');
+  });
+
+  it.each([[['a', 'b']], [''], [undefined]])('%j dijawab 404', (value) => {
+    expect(() => strParam(value, 'Office')).toThrow(expect.objectContaining({ statusCode: 404 }));
   });
 });
 
