@@ -1,0 +1,181 @@
+# Dipicu manual dari tab Actions > Update Env Variables > Run workflow.
+#
+# Menulis variabel sensitif dari GitHub Secrets ke
+# D:\.server\kuliah\d4\devsecops\uts\.env, lalu membuat ulang container supaya nilainya terbaca. Baris lain di .env
+# (mis. BE_TAG yang ditulis deploy.yml) dibiarkan apa adanya.
+#
+# Pengaman:
+# - .env lama disalin ke .env.bak sebelum ditulis. Kalau container tidak sehat
+#   dengan nilai baru (mis. DATABASE_URL salah ketik), .env.bak dikembalikan
+#   dan container dibuat ulang dengan nilai lama. .env.bak tetap tersimpan di
+#   samping .env (isinya sama rahasianya, jadi aksesnya sama ketatnya).
+# - Group concurrency "production", sama dengan deploy.yml: keduanya menulis
+#   ke .env / me-restart container yang sama, jadi tidak boleh jalan
+#   bersamaan.
+# - Kalau tidak ada nilai yang berubah, container tidak di-restart.
+#
+# CARA MENAMBAH VARIABEL SENSITIF BARU (dua tempat yang perlu diedit):
+#   1. Tambahkan baris baru di blok "env:" pada step "Perbarui .env",
+#      formatnya: NAMA_VARIABEL: ${{ secrets.NAMA_VARIABEL }}
+#   2. Tambahkan nama variabel yang sama ke dalam $daftarVariabel di bawahnya
+# Nama secret di GitHub HARUS sama persis (case-sensitive) dengan nama
+# variabel yang dipakai di sini dan di dalam .env server.
+#
+# Notifikasi lewat ntfy.sh ke topik di secret NTFY_TOPIC (lihat deploy.yml).
+
+name: Update Env Variables
+
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  update-env:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    env:
+      DEPLOY_DIR: D:\.server\kuliah\d4\devsecops\uts
+      APP_PORT: 3008
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+    steps:
+      - name: Perbarui .env, restart, rollback bila tidak sehat
+        id: update
+        shell: powershell
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:DEPLOY_DIR
+          $envPath = Join-Path $env:DEPLOY_DIR ".env"
+          $backupPath = Join-Path $env:DEPLOY_DIR ".env.bak"
+
+          # Daftar nama variabel yang mau ditulis/diperbarui.
+          # Harus cocok persis dengan nama di blok "env:" di atas.
+          $daftarVariabel = @("DATABASE_URL", "JWT_SECRET", "JWT_REFRESH_SECRET")
+
+          function Invoke-Docker {
+            docker @args
+            if ($LASTEXITCODE -ne 0) { throw "docker $($args -join ' ') gagal (exit $LASTEXITCODE)" }
+          }
+
+          function Set-Result([string]$value) {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "result=$value" -Encoding ascii
+          }
+
+          # Sama dengan Test-Health di deploy.yml, tanpa cek versi: di sini
+          # versinya tidak berubah. Status "ok" berarti DB tersambung, jadi
+          # DATABASE_URL yang salah tertangkap di sini.
+          function Test-Health([int]$attempts) {
+            $ErrorActionPreference = "Continue"
+            for ($i = 1; $i -le $attempts; $i++) {
+              Start-Sleep -Seconds 5
+              $body = curl.exe -fsS --max-time 5 "http://localhost:$env:APP_PORT/api/v1/health"
+              if ($LASTEXITCODE -ne 0) { Write-Host "Percobaan ${i}: belum merespons."; continue }
+              $data = $null
+              try { $data = (($body | Out-String) | ConvertFrom-Json).data } catch { }
+              if ($data -and $data.status -eq "ok") {
+                Write-Host "Sehat: v$($data.version)."
+                return $true
+              }
+              Write-Host "Percobaan ${i}: respons belum sesuai."
+            }
+            return $false
+          }
+
+          # Selalu bungkus dengan @(...): tanpa itu, file satu baris atau hasil
+          # filter kosong membuat $lines jadi string/$null, lalu "+=" menyambung
+          # teks alih-alih menambah elemen -- semua variabel jadi satu baris.
+          $adaFileLama = Test-Path $envPath
+          $lamaLines = @()
+          if ($adaFileLama) { $lamaLines = @(Get-Content $envPath) }
+          $lines = $lamaLines
+
+          foreach ($nama in $daftarVariabel) {
+            $nilai = [System.Environment]::GetEnvironmentVariable($nama)
+            if ([string]::IsNullOrEmpty($nilai)) {
+              Write-Host "PERINGATAN: $nama kosong atau secret belum diisi, dilewati."
+              continue
+            }
+            $lines = @($lines | Where-Object { $_ -notmatch "^$nama=" })
+            # Tanpa "\n": di PowerShell itu teks harfiah (escape-nya backtick),
+            # dan Set-Content sudah menulis tiap elemen array di baris sendiri.
+            $lines += "$nama=$nilai"
+          }
+
+          if ($lines.Count -eq 0) {
+            Write-Host "::error::Tidak ada satu pun secret yang terisi."
+            Set-Result "failed"
+            exit 1
+          }
+
+          # Urutan baris bisa bergeser walau nilainya sama, jadi yang
+          # dibandingkan isinya, bukan urutannya. Compare-Object menolak array
+          # kosong, jadi hanya dibandingkan kalau .env lama ada isinya.
+          # -CaseSensitive: secret yang hanya berbeda huruf besar/kecil tetap
+          # dianggap berubah.
+          $sama = $false
+          if ($lamaLines.Count -gt 0) {
+            $sama = -not (Compare-Object -ReferenceObject $lamaLines -DifferenceObject $lines -CaseSensitive)
+          }
+          if ($sama) {
+            Write-Host "Semua nilai sama dengan yang ada di server, container tidak di-restart."
+            Set-Result "unchanged"
+            exit 0
+          }
+
+          if ($adaFileLama) { Copy-Item -Path $envPath -Destination $backupPath -Force }
+          Set-Content -Path $envPath -Value $lines
+          Write-Host ".env diperbarui."
+
+          # Container dibuat ulang karena env_file hanya dibaca saat dibuat.
+          Invoke-Docker compose up -d --force-recreate --pull never BE
+          if (Test-Health 24) {
+            Set-Result "success"
+            exit 0
+          }
+
+          Write-Host "::error::Container tidak sehat dengan .env baru."
+          $ErrorActionPreference = "Continue"
+          docker compose logs --tail 100 BE
+          $ErrorActionPreference = "Stop"
+
+          if (-not $adaFileLama) {
+            Set-Result "failed"
+            exit 1
+          }
+          Write-Host "Mengembalikan .env lama dari .env.bak."
+          Copy-Item -Path $backupPath -Destination $envPath -Force
+          Invoke-Docker compose up -d --force-recreate --pull never BE
+          if (Test-Health 24) {
+            Set-Result "rolled-back"
+          } else {
+            Write-Host "::error::Container juga tidak sehat dengan .env lama."
+            Set-Result "rollback-failed"
+          }
+          exit 1
+
+      - name: Notifikasi
+        if: always()
+        shell: powershell
+        env:
+          RESULT: ${{ steps.update.outputs.result }}
+        run: |
+          if (-not $env:NTFY_TOPIC) {
+            Write-Host "Secret NTFY_TOPIC belum diisi, notifikasi dilewati."
+            exit 0
+          }
+          switch ($env:RESULT) {
+            "success"         { $pesan = "Env variables berhasil diperbarui di server" }
+            "unchanged"       { $pesan = "Env variables tidak berubah, server tidak di-restart" }
+            "rolled-back"     { $pesan = "Update env variables GAGAL, server dikembalikan ke .env lama" }
+            "rollback-failed" { $pesan = "Update env variables GAGAL dan .env lama juga tidak sehat, server perlu dicek SEKARANG" }
+            default           { $pesan = "Update env variables GAGAL, cek log workflow" }
+          }
+          curl.exe -fsS -d $pesan "https://ntfy.sh/$env:NTFY_TOPIC"
+          exit 0

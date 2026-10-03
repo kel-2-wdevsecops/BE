@@ -1,0 +1,22 @@
+# Pengecualian Trivy yang diterima secara sadar (risk acceptance). Dibaca
+# otomatis oleh Trivy di ci.yml (SCA fs) dan deploy.yml (scan image).
+#
+# Aturan: setiap baris wajib punya alasan dan `exp:` (tanggal kedaluwarsa).
+# Setelah tanggal itu Trivy kembali menganggapnya temuan dan CI gagal,
+# sehingga pengecualian ini harus ditinjau ulang, bukan terlupakan.
+# Cek dulu apakah Prisma sudah merilis versi yang membawa perbaikannya.
+
+# deepmerge-ts 7.1.5 (stack exhaustion saat merge objek rekursif).
+# Di-pin persis oleh @prisma/config 7.10.0, perbaikannya di 8.0.0 (major) dan
+# tidak bisa dipaksa lewat `overrides` tanpa risiko merusak Prisma. Hanya
+# dipakai CLI Prisma untuk membaca prisma.config.ts milik kita sendiri, tidak
+# pernah menerima input dari pengguna API.
+CVE-2026-40345 exp:2027-01-03
+
+# mysql2 3.15.3 (downgrade auth plugin ke mysql_clear_password).
+# Di-pin persis oleh prisma 7.10.0 (CLI), perbaikannya di 3.22.0. Aplikasi
+# tidak memakai mysql2: koneksi runtime lewat @prisma/adapter-mariadb (driver
+# `mariadb`, sudah di-override ke 3.4.7 di package.json). Risiko tersisa ada
+# di `prisma migrate deploy` saat container start, yang hanya menyambung ke
+# server DB milik kita sendiri.
+GHSA-3f6p-5ww8-9rcr exp:2027-01-03

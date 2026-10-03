@@ -1,0 +1,54 @@
+# Dependabot: PR otomatis untuk update dependency. Prefix commit-nya
+# menentukan apakah update itu memicu rilis (lihat release.yml):
+# - dependency produksi -> fix(deps), rilis patch, jadi perbaikan keamanan
+#   benar-benar sampai ke server;
+# - devDependency dan action GitHub -> chore(deps-dev) / ci(deps), tanpa rilis.
+# PR tetap harus di-review dan di-merge manual; CI memeriksanya seperti PR lain.
+#
+# cooldown: versi baru baru diusulkan setelah beberapa hari terbit, supaya
+# paket yang dibajak (biasanya ketahuan dan ditarik dalam hitungan hari) tidak
+# langsung masuk. Security update dari Dependabot tidak terkena jeda ini.
+#
+# Yang TIDAK diperbarui Dependabot: NODE_VERSION di Dockerfile (FROM memakai
+# ARG) dan image yang di-pin di ci.yml (semgrep, mariadb). Naikkan manual;
+# gerbang Trivy di deploy.yml yang mengingatkan kalau base image tertinggal.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Jakarta
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+      include: scope
+    groups:
+      # Satu PR untuk semua minor/patch, supaya tidak banjir PR. Major tetap
+      # satu PR per paket karena biasanya butuh perubahan kode.
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Jakarta
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
