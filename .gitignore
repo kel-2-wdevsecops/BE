@@ -1,0 +1,13 @@
+node_modules
+# Keep environment variables out of version control
+secrets/
+*.key
+.env
+.env.*
+!.env.example
+/public/uploads
+/src/generated/prisma
+
+# Hasil build — dibuat di dalam Dockerfile, tidak di-commit.
+/dist
+CLAUDE.md

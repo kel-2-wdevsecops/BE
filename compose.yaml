@@ -1,0 +1,36 @@
+services:
+  BE:
+    # Tag versi yang jalan (mis. 1.2.0) ditulis workflow deploy sebagai
+    # BE_TAG di .env server (D:\.server\kuliah\d4\devsecops\uts\.env);
+    # compose membaca .env yang sama untuk interpolasi. Tanpa BE_TAG (mis.
+    # saat validasi di CI) jatuh ke :latest.
+    image: ghcr.io/kel-2-wdevsecops/be:${BE_TAG:-latest}
+    # Health check deploy.yml dan update_env.yml memanggil
+    # http://localhost:3008/api/v1/health dari host, jadi port wajib
+    # di-publish. Kalau akses publik lewat reverse proxy/tunnel di mesin yang
+    # sama, ganti menjadi "127.0.0.1:3008:3008" supaya tidak terbuka ke LAN.
+    ports:
+      - "3008:3008"
+    restart: unless-stopped
+    # tini sebagai PID 1: meneruskan SIGTERM ke Node (graceful shutdown di
+    # server.ts) dan membereskan proses zombie. Lihat CMD di Dockerfile.
+    init: true
+    # MariaDB/MySQL berjalan di host server, bukan di container: dari dalam
+    # container host dijangkau lewat host.docker.internal (bawaan Docker
+    # Desktop; baris ini untuk Docker Engine di Linux).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Rahasia (DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET) TIDAK boleh
+    # ditulis di file ini — file ini ikut git. Ditulis workflow
+    # update_env.yml ke .env server. `required: false` supaya validasi
+    # `docker compose config` di CI (yang tidak punya .env) tetap lolos.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Asia/Jakarta
+      PORT: 3008
+      NODE_ENV: production
+      APP_NAME: "Axon Sales API"
+      JWT_EXPIRES_IN: 86400
+      JWT_REFRESH_EXPIRES_IN: 604800

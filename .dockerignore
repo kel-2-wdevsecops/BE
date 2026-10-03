@@ -1,0 +1,17 @@
+# Hasil build & dependency dari host tidak boleh masuk image — semuanya
+# dibuat ulang di dalam Alpine (lihat Dockerfile).
+node_modules
+dist
+src/generated
+src/**/*.test.ts
+
+# Rahasia & data lokal: jangan sampai ikut ke build context.
+.env
+.env.*
+secrets
+*.key
+public/uploads
+
+.git
+.github
+.vscode
