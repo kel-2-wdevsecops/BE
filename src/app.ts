@@ -10,8 +10,9 @@ import { clientIp } from './utils/clientIp';
 import { apiLimiter, healthLimiter } from './middleware/rateLimit.middleware';
 
 // ── Route imports ─────────────────────────────────────────────────────────────
-import authRoutes  from './modules/auth/auth.routes';
-import usersRoutes from './modules/users/users.routes';
+import authRoutes    from './modules/auth/auth.routes';
+import usersRoutes   from './modules/users/users.routes';
+import officesRoutes from './modules/offices/offices.routes';
 
 // ── Error middleware ──────────────────────────────────────────────────────────
 import { errorMiddleware } from './middleware/error.middleware';
@@ -67,8 +68,9 @@ api.get('/health', healthLimiter, asyncHandler(async (_req: Request, res: Respon
 
 api.use(apiLimiter);
 
-api.use('/auth',  authRoutes);
-api.use('/users', usersRoutes);
+api.use('/auth',    authRoutes);
+api.use('/users',   usersRoutes);
+api.use('/offices', officesRoutes);
 
 app.use('/api/v1', api);
 
