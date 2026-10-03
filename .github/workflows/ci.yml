@@ -1,0 +1,185 @@
+# CI: gerbang kualitas dan keamanan. Kompilasi untuk produksi terjadi di
+# Dockerfile, jadi di sini cukup memastikan kodenya benar dan aman.
+# Berjalan di dua tempat:
+# - setiap pull request ke main, supaya kesalahan ketahuan sebelum merge;
+# - dipanggil release.yml (workflow_call) di setiap push ke main, SEBELUM
+#   release-please. Gerbang inilah yang mencegah kode yang gagal dirilis atau
+#   sampai ke produksi, walau push langsung ke main tetap mungkin.
+#
+# Semua action di-pin ke SHA commit (tag bisa dipindah pemiliknya, lihat kasus
+# tj-actions/trivy-action); komentar di belakangnya versi yang dimaksud.
+# Dependabot (.github/dependabot.yml) yang menaikkannya.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+# Push baru ke PR yang sama membatalkan run lama. Saat dipanggil release.yml,
+# group-nya run_id (unik) dan tidak pernah dibatalkan: run itu gerbang rilis.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Lint, test & typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Riwayat lengkap, supaya commitlint bisa membaca semua commit di PR.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependency
+        run: npm ci --no-audit --no-fund
+
+      # Format pesan commit (commitlint.config.mjs). release-please menentukan
+      # versi & changelog dari setiap commit di main, dan setelah di-merge
+      # pesannya tidak bisa diperbaiki lagi, jadi diperiksa di PR. Hanya saat
+      # PR: kalau dipanggil release.yml, commit-nya sudah ada di main.
+      - name: Commit message
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+      # ESLint. Sebaiknya skrip `lint` memakai --max-warnings 0, supaya
+      # warning pun menggagalkan CI, sama dengan saat dijalankan lokal.
+      - name: Lint
+        run: npm run lint
+
+      # Kerentanan di dependency produksi (SCA tingkat npm). Hanya CRITICAL
+      # yang memblokir: per Oktober 2026 ada beberapa HIGH di dependency milik
+      # Prisma 7 sendiri (mysql2, mariadb, deepmerge-ts) yang belum punya
+      # perbaikan selain downgrade ke Prisma 6, jadi gerbang HIGH akan
+      # memblokir setiap rilis. Laporan lengkap tetap tercetak di log, dan
+      # Trivy fs di job security tetap melaporkan HIGH; Dependabot membuka PR
+      # begitu ada versi yang memperbaikinya.
+      - name: Audit dependency produksi
+        run: npm audit --omit=dev --audit-level=critical
+
+      # prisma.config.ts membaca DATABASE_URL lewat env(), yang gagal kalau
+      # kosong. `generate` tidak menyambung ke DB, jadi URL palsu cukup.
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: mysql://ci:ci@localhost:3306/ci
+
+      - name: Test
+        run: npm test
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  # Container produksi menjalankan `prisma migrate deploy` setiap start. Kalau
+  # sebuah migrasi rusak, itu baru ketahuan di server, setelah container lama
+  # dihentikan. Di sini semua migrasi diterapkan ke MariaDB kosong, lalu
+  # schema.prisma dibandingkan dengan hasilnya: kalau berbeda, ada perubahan
+  # skema yang lupa dibuatkan migrasi (mis. hanya di-`db:push`).
+  migrations:
+    name: Prisma migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.8@sha256:93fc3fe333b6cdfb061425869c2c3a5bb2851c0c74dbebc2c940f024e7482d76
+        env:
+          MARIADB_ROOT_PASSWORD: ci
+          MARIADB_DATABASE: ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: mysql://root:ci@127.0.0.1:3306/ci
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependency
+        run: npm ci --no-audit --no-fund
+
+      - name: Terapkan semua migrasi ke DB kosong
+        run: npx prisma migrate deploy
+
+      - name: Skema sesuai dengan migrasi
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+
+  # SAST (Semgrep), secret scan (Gitleaks), SCA (Trivy fs) dan SBOM. Semua
+  # memblokir kecuali SBOM. Temuan Semgrep yang memang salah alarm ditandai di
+  # kodenya dengan `// nosemgrep: <rule-id>` beserta alasannya, temuan
+  # Gitleaks dengan `.gitleaksignore`, bukan dengan mematikan job ini.
+  security:
+    name: Security (SAST, Secret Scan, SCA, SBOM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Gitleaks memindai seluruh riwayat commit, bukan hanya isi terakhir.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: SAST (Semgrep)
+        run: >-
+          docker run --rm -v "$PWD:/src" -w /src
+          semgrep/semgrep:1.179.0@sha256:cab19964e6c93019934252a9cd591d9b27df1e5b5d1734b26f4069ae51c295f8
+          semgrep scan --config p/owasp-top-ten --config p/nodejs --error --metrics off
+
+      # CLI lewat image, bukan gitleaks-action: action itu butuh lisensi
+      # berbayar untuk repo milik organisasi. --user menyamakan pemilik file
+      # supaya git di dalam container tidak menolak repo ("dubious ownership").
+      - name: Secret scan (Gitleaks)
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo"
+          ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git /repo --redact --verbose
+
+      - name: SCA (Trivy fs)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          version: v0.75.0
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # SBOM dependency (CycloneDX), disimpan sebagai artifact run. SBOM image
+      # dibuat terpisah oleh buildx di deploy.yml dan ikut ke registry.
+      - name: SBOM (CycloneDX)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          artifact-name: sbom.cdx.json

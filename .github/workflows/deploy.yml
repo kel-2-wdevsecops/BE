@@ -1,29 +1,52 @@
-# Simpan file ini di: .github/workflows/deploy.yml
+# Build image, scan, DAST, sign, lalu deploy ke server. Hanya dipanggil
+# release.yml (workflow_call) ketika release-please membuat rilis, setelah CI
+# (SAST, secret scan, SCA, test) lulus.
+#
 # Registry: GHCR (ghcr.io) -- private package gratis tanpa batas jumlah,
 # autentikasi memakai GITHUB_TOKEN bawaan Actions, tidak perlu secret tambahan.
 # Build lokal di laptop tetap bebas memakai Podman, image yang dihasilkan
 # tetap OCI-compliant sehingga tidak ada masalah kompatibilitas dengan Docker.
-# Job "deploy" berjalan di self-hosted runner Windows, sehingga memakai
-# sintaks PowerShell (pwsh), bukan bash.
 #
-# Alur: security -> test -> build (push) -> deploy
-#   security : SAST (Semgrep), secret scan (Gitleaks), SCA (Trivy fs)
-#   test     : unit test, npm audit, SBOM, scan image (Trivy), DAST (ZAP baseline)
-#   build    : push image ke GHCR, sign (Cosign) dan provenance (SLSA),
-#              hanya jika security dan test lolos
-#   deploy   : policy admission (registry, tanda tangan, provenance) lalu deploy
-#              berdasarkan digest yang terverifikasi
+# Alur:
+#   build  : build -> scan image (Trivy) -> DAST (ZAP baseline) -> push dengan
+#            SBOM + provenance -> sign (Cosign keyless) -> attestation (SLSA).
+#            Image yang gagal scan tidak pernah sampai ke registry.
+#   deploy : policy admission (registry, digest, tanda tangan, provenance),
+#            lalu deploy image berdasarkan digest yang terverifikasi, health
+#            check, dan rollback otomatis bila tidak sehat.
+#
+# Job "deploy" berjalan di self-hosted runner Windows (server produksi itu
+# sendiri), sehingga memakai sintaks PowerShell, bukan bash. Action di sana
+# berjalan di Node 24, jadi runner-nya harus versi baru (auto-update runner
+# jangan dimatikan). Server juga butuh gh CLI (verifikasi provenance).
+#
+# Server menjalankan tag versi (mis. :1.2.0), bukan :latest. Tag yang aktif
+# disimpan sebagai BE_TAG di D:\.server\kuliah\d4\devsecops\uts\.env, yang
+# dibaca compose.yaml (image: ...:${BE_TAG:-latest}), jadi `docker compose up`
+# dari workflow lain (update_env) tetap memakai versi yang sama. Kalau versi
+# baru tidak sehat, job ini otomatis kembali ke image yang jalan sebelumnya.
+#
+# Rollback otomatis hanya mengganti kode, bukan database: kalau versi baru
+# sudah menerapkan migrasi, versi lama berjalan di atas skema baru. Itu aman
+# selama migrasinya hanya menambah (kolom/tabel baru); migrasi yang menghapus
+# atau mengganti nama kolom harus dirilis bertahap (expand -> contract).
+#
+# Notifikasi lewat ntfy.sh ke topik di secret NTFY_TOPIC. Topik ntfy.sh
+# publik bagi siapa pun yang tahu namanya, jadi namanya harus acak dan tidak
+# boleh ditulis di file ini.
 
 name: Build and Deploy
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
+  workflow_call:
+    inputs:
+      version:
+        description: Versi rilis dari release-please (mis. 1.2.0), dipakai sebagai tag image.
+        required: true
+        type: string
+    secrets:
+      NTFY_TOPIC:
+        required: false
 
 env:
   # GHCR mewajibkan nama image huruf kecil semua.
@@ -31,110 +54,24 @@ env:
   APP_PORT: 3008
 
 jobs:
-  security:
-    name: Security (SAST, Secret Scan, SCA)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout kode
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
-        with:
-          fetch-depth: 0 # gitleaks perlu seluruh riwayat commit
-
-      - name: SAST scan dengan Semgrep
-        run: |
-          pip install semgrep --quiet
-          semgrep --config=p/owasp-top-ten --config=p/nodejs --error .
-
-      - name: Secret scan dengan Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: SCA scan dependency dengan Trivy
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-
-  test:
-    name: Test (Unit, SBOM, Image Scan, DAST)
-    needs: security
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout kode
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependency
-        run: npm ci
-
-      - name: Unit test
-        run: npm test --if-present
-
-      - name: Audit dependency production
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@v0
-        with:
-          path: .
-          format: cyclonedx-json
-          output-file: sbom.cdx.json
-          artifact-name: sbom.cdx.json
-
-      - name: Build image lokal untuk pengujian
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          load: true
-          push: false
-          tags: ${{ env.IMAGE_NAME }}:test
-
-      - name: Scan image dengan Trivy
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}:test
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-
-      - name: Jalankan container untuk DAST
-        run: |
-          docker run -d --name app -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
-            -e PORT=${{ env.APP_PORT }} ${{ env.IMAGE_NAME }}:test
-          for i in $(seq 1 15); do
-            curl -fs http://localhost:${{ env.APP_PORT }}/api/v1/health && exit 0
-            sleep 2
-          done
-          docker logs app
-          exit 1
-
-      - name: DAST dengan OWASP ZAP baseline
-        uses: zaproxy/action-baseline@v0.14.0
-        with:
-          target: http://localhost:${{ env.APP_PORT }}
-          allow_issue_writing: false
-          fail_action: false # ubah ke true setelah temuan awal dibereskan
-          artifact_name: zap-report
-
-      - name: Hentikan container
-        if: always()
-        run: docker rm -f app
-
   build:
-    name: Build dan push image
-    needs: [security, test]
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Database kosong untuk DAST: aplikasi keluar saat start kalau DB tidak
+    # tersambung, dan CMD-nya menjalankan `prisma migrate deploy` dulu.
+    services:
+      mariadb:
+        image: mariadb:11.8@sha256:93fc3fe333b6cdfb061425869c2c3a5bb2851c0c74dbebc2c940f024e7482d76
+        env:
+          MARIADB_ROOT_PASSWORD: dast
+          MARIADB_DATABASE: dast
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     permissions:
       contents: read
       packages: write
@@ -142,65 +79,182 @@ jobs:
       attestations: write # menyimpan attestation provenance
     outputs:
       digest: ${{ steps.push.outputs.digest }}
+    env:
+      VERSION: ${{ inputs.version }}
     steps:
+      # Dari tag rilis, bukan github.sha: release-please membaca status PR
+      # lewat API, jadi run dari push SEBELUM release PR di-merge pun bisa
+      # membuat rilisnya. github.sha run itu belum berisi bump versi, dan image
+      # :x.y.z-nya akan melaporkan versi lama.
       - name: Checkout kode
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ inputs.version }}
+          persist-credentials: false
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Login ke GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build dan push image
+      # Build sekali ke daemon lokal untuk di-scan dan diuji. Belum ada yang
+      # di-push: image yang gagal scan tidak boleh sampai ke registry.
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: be:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Laporan lengkap (HIGH + CRITICAL yang sudah ada perbaikannya), tidak
+      # memblokir.
+      - name: Scan image (laporan)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: be:scan
+          version: v0.75.0
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '0'
+
+      # Gerbang: CRITICAL yang sudah punya perbaikan menggagalkan rilis.
+      # Biasanya cukup dengan menaikkan versi base image di Dockerfile.
+      - name: Scan image (gerbang CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: be:scan
+          version: v0.75.0
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-setup-trivy: true
+
+      # --network host: container menjangkau MariaDB service di
+      # 127.0.0.1:3306, dan ZAP menjangkau aplikasi di localhost. JWT_SECRET
+      # acak sekali pakai; database-nya kosong, jadi DAST hanya menguji
+      # permukaan yang bisa dicapai tanpa login (health, auth, 401/404).
+      - name: Jalankan container untuk DAST
+        run: |
+          docker run -d --name app --network host \
+            -e PORT="$APP_PORT" \
+            -e DATABASE_URL="mysql://root:dast@127.0.0.1:3306/dast" \
+            -e JWT_SECRET="$(openssl rand -base64 48)" \
+            be:scan
+          for i in $(seq 1 30); do
+            curl -fs "http://localhost:$APP_PORT/api/v1/health" && exit 0
+            sleep 2
+          done
+          docker logs app
+          exit 1
+
+      - name: DAST (OWASP ZAP baseline)
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: http://localhost:${{ env.APP_PORT }}
+          allow_issue_writing: false
+          fail_action: false # ubah ke true setelah temuan awal dibereskan
+          artifact_name: zap-report
+
+      - name: Hentikan container DAST
+        if: always()
+        run: docker rm -f app || true
+
+      # Build ulang dari cache (tidak ada layer yang dikompilasi ulang), lalu
+      # push dengan SBOM dan provenance. Label versi dipakai job deploy untuk
+      # tahu versi yang sedang jalan, sebagai target rollback.
+      - name: Push image
         id: push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           push: true
+          cache-from: type=gha
+          provenance: mode=max
+          sbom: true
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ inputs.version }}
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
 
       - name: Pasang Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign image dengan Cosign (keyless)
-        run: cosign sign --yes ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "$IMAGE_NAME@$DIGEST"
 
       - name: Buat attestation provenance (SLSA)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
+      - name: Notifikasi gagal
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then echo "Secret NTFY_TOPIC belum diisi, notifikasi dilewati."; exit 0; fi
+          curl -fsS -d "Rilis BE v$VERSION GAGAL di build/scan/sign image, server tidak tersentuh (commit $GITHUB_SHA)" "https://ntfy.sh/$NTFY_TOPIC" || true
+
   deploy:
     needs: build
     runs-on: self-hosted
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    # Satu perubahan ke server produksi dalam satu waktu. Workflow lain yang
+    # me-restart container (update_env) memakai group yang sama.
+    concurrency:
+      group: production
+      cancel-in-progress: false
     env:
-      # Hanya tanda tangan dari workflow ini, di branch main, yang dipercaya.
-      SIGNER_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@refs/heads/main
+      VERSION: ${{ inputs.version }}
+      DEPLOY_DIR: D:\.server\kuliah\d4\devsecops\uts
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
       IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
+      # Hanya tanda tangan dari workflow ini, dipanggil dari main, yang
+      # dipercaya. Untuk reusable workflow, identitas sertifikatnya adalah
+      # file deploy.yml ini sendiri, bukan release.yml pemanggilnya.
+      SIGNER_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@refs/heads/main
     steps:
-      - name: Checkout kode
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+      - name: Checkout compose.yaml
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ inputs.version }}
+          persist-credentials: false
+          sparse-checkout: compose.yaml
+          sparse-checkout-cone-mode: false
 
       - name: Login ke GHCR di server
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pasang Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Policy admission - registry dan digest
         shell: powershell
         run: |
-          if (-not "${{ env.IMAGE_NAME }}".StartsWith("ghcr.io/kel-2-wdevsecops/")) {
+          if (-not "$env:IMAGE_NAME".StartsWith("ghcr.io/kel-2-wdevsecops/")) {
             Write-Host "DITOLAK: image bukan dari registry yang diizinkan."
             exit 1
           }
@@ -213,7 +267,7 @@ jobs:
       - name: Policy admission - verifikasi tanda tangan
         shell: powershell
         run: |
-          cosign verify "${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST" `
+          cosign verify "$env:IMAGE_NAME@$env:IMAGE_DIGEST" `
             --certificate-identity "$env:SIGNER_IDENTITY" `
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
           if ($LASTEXITCODE -ne 0) {
@@ -225,8 +279,9 @@ jobs:
         shell: powershell
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          gh attestation verify "oci://${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST" --repo "${{ github.repository }}"
+          gh attestation verify "oci://$env:IMAGE_NAME@$env:IMAGE_DIGEST" --repo "$env:REPO"
           if ($LASTEXITCODE -ne 0) {
             Write-Host "DITOLAK: provenance image tidak valid."
             exit 1
@@ -234,63 +289,169 @@ jobs:
 
       - name: Validasi compose.yaml sebelum diterapkan
         shell: powershell
-        run: docker compose -f "$env:GITHUB_WORKSPACE\compose.yaml" config --quiet
+        run: |
+          docker compose -f "$env:GITHUB_WORKSPACE\compose.yaml" config --quiet
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Sinkronkan compose.yaml ke server jika ada perubahan
         shell: powershell
         run: |
+          New-Item -ItemType Directory -Path $env:DEPLOY_DIR -Force | Out-Null
           $sumber = Get-FileHash "$env:GITHUB_WORKSPACE\compose.yaml"
-          $tujuanAda = Test-Path "D:\.server\kuliah\d4\devsecops\uts\compose.yaml"
-          $tujuan = if ($tujuanAda) { Get-FileHash "D:\.server\kuliah\d4\devsecops\uts\compose.yaml" } else { $null }
+          $tujuanPath = Join-Path $env:DEPLOY_DIR "compose.yaml"
+          $tujuanAda = Test-Path $tujuanPath
+          $tujuan = if ($tujuanAda) { Get-FileHash $tujuanPath } else { $null }
 
           if (-not $tujuanAda -or $sumber.Hash -ne $tujuan.Hash) {
             Write-Host "Konfigurasi berbeda, menyalin versi baru ke server."
-            Copy-Item -Path "$env:GITHUB_WORKSPACE\compose.yaml" -Destination "D:\.server\kuliah\d4\devsecops\uts\compose.yaml" -Force
+            Copy-Item -Path "$env:GITHUB_WORKSPACE\compose.yaml" -Destination $tujuanPath -Force
           } else {
             Write-Host "Tidak ada perubahan pada compose.yaml, penyalinan dilewati."
           }
 
-      - name: Pull image yang sudah terverifikasi (berdasarkan digest)
+      - name: Deploy, health check, rollback bila gagal
+        id: deploy
         shell: powershell
         run: |
-          docker pull "${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST"
-          # compose memakai :latest, arahkan ke image terverifikasi tersebut
-          docker tag "${{ env.IMAGE_NAME }}@$env:IMAGE_DIGEST" "${{ env.IMAGE_NAME }}:latest"
+          $ErrorActionPreference = "Stop"
+          Set-Location $env:DEPLOY_DIR
+          $image = $env:IMAGE_NAME
+          $envPath = Join-Path $env:DEPLOY_DIR ".env"
 
-      - name: Deploy dengan docker compose
-        shell: powershell
-        run: |
-          cd D:\.server\kuliah\d4\devsecops\uts
-          # --pull never: jangan menarik ulang latest dari registry
-          docker compose up -d --pull never BE
-
-      - name: Health check
-        shell: powershell
-        run: |
-          $success = $false
-          for ($i = 1; $i -le 5; $i++) {
-            Start-Sleep -Seconds 5
-            curl.exe -fs http://localhost:3008/api/v1/health
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "Aplikasi sehat."
-              $success = $true
-              break
-            }
-            Write-Host "Percobaan $i gagal, mencoba lagi..."
+          function Invoke-Docker {
+            docker @args
+            if ($LASTEXITCODE -ne 0) { throw "docker $($args -join ' ') gagal (exit $LASTEXITCODE)" }
           }
-          if (-not $success) {
-            Write-Host "Aplikasi tidak merespons setelah 5 kali percobaan."
+
+          function Set-Result([string]$value) {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "result=$value" -Encoding ascii
+          }
+
+          # Tag image yang dipakai compose.yaml, disimpan di .env server.
+          # Baris lain di .env (rahasia aplikasi) dibiarkan apa adanya.
+          # Selalu bungkus dengan @(...), lihat update_env.yml.
+          function Set-ImageTag([string]$tag) {
+            $lines = @()
+            if (Test-Path $envPath) { $lines = @(Get-Content $envPath) }
+            $lines = @($lines | Where-Object { $_ -notmatch '^BE_TAG=' })
+            $lines += "BE_TAG=$tag"
+            Set-Content -Path $envPath -Value $lines
+            $env:BE_TAG = $tag
+            Write-Host "BE_TAG=$tag"
+          }
+
+          # Sehat = status "ok" dan, kalau $expected diisi, versinya sama:
+          # tanpa cek versi, container lama yang masih jalan pun lolos. Batas
+          # waktunya cukup panjang untuk migrasi database saat start.
+          function Test-Health([string]$expected, [int]$attempts) {
+            # Container yang sedang restart membuat curl gagal dan menulis ke
+            # stderr; jangan sampai itu menghentikan script.
+            $ErrorActionPreference = "Continue"
+            for ($i = 1; $i -le $attempts; $i++) {
+              Start-Sleep -Seconds 5
+              $body = curl.exe -fsS --max-time 5 "http://localhost:$env:APP_PORT/api/v1/health"
+              if ($LASTEXITCODE -ne 0) { Write-Host "Percobaan ${i}: belum merespons."; continue }
+              $data = $null
+              try { $data = (($body | Out-String) | ConvertFrom-Json).data } catch { }
+              if ($data -and $data.status -eq "ok" -and (-not $expected -or $data.version -eq $expected)) {
+                Write-Host "Sehat: v$($data.version)."
+                return $true
+              }
+              Write-Host "Percobaan ${i}: respons belum sesuai (versi: $($data.version))."
+            }
+            return $false
+          }
+
+          # 1. Catat image yang sedang jalan, sebagai target rollback. Tag
+          #    lokal :previous menjaganya dari pembersihan image di bawah.
+          $rollbackTag = $null
+          $prevImageId = $null
+          $cid = docker compose ps -q BE
+          if ($LASTEXITCODE -eq 0 -and $cid) {
+            $prevImageId = (docker inspect --format '{{.Image}}' "$cid").Trim()
+            # Label dibaca sebagai JSON: Windows PowerShell 5.1 membuang tanda
+            # kutip ganda di dalam argumen program native, jadi template
+            # `index .Config.Labels "..."` tidak sampai utuh ke docker.
+            $labels = (docker image inspect --format '{{json .Config.Labels}}' $prevImageId | Out-String) | ConvertFrom-Json
+            $prevVersion = if ($labels) { $labels.'org.opencontainers.image.version' } else { $null }
+            Invoke-Docker tag $prevImageId "${image}:previous"
+            # Image lama tanpa label versi (dibuat sebelum workflow ini):
+            # pakai tag lokal :previous.
+            if ($prevVersion -and $prevVersion -ne $env:VERSION) {
+              $rollbackTag = $prevVersion
+            } else {
+              $rollbackTag = "previous"
+            }
+            Write-Host "Versi yang sedang jalan: $prevVersion (rollback ke :$rollbackTag)."
+          } else {
+            Write-Host "Belum ada container yang jalan, rollback tidak tersedia."
+          }
+
+          # 2. Deploy versi baru. Ditarik berdasarkan digest yang sudah lolos
+          #    policy admission, bukan berdasarkan tag (tag bisa dipindah),
+          #    lalu diberi tag versi lokal untuk compose. --pull never: compose
+          #    tidak boleh menarik ulang apa pun dari registry.
+          Invoke-Docker pull "${image}@$env:IMAGE_DIGEST"
+          Invoke-Docker tag "${image}@$env:IMAGE_DIGEST" "${image}:$env:VERSION"
+          Set-ImageTag $env:VERSION
+          Invoke-Docker compose up -d --pull never BE
+
+          if (Test-Health $env:VERSION 36) {
+            # 3. Bersihkan image BE lama, sisakan yang jalan sekarang dan
+            #    target rollback berikutnya.
+            $ErrorActionPreference = "Continue"
+            $keep = @((docker image inspect --format '{{.Id}}' "${image}:$env:VERSION").Trim())
+            if ($prevImageId) { $keep += $prevImageId }
+            foreach ($line in @(docker images --no-trunc --format '{{.ID}}|{{.Tag}}' $image)) {
+              $id, $tag = $line -split '\|', 2
+              if ($keep -contains $id) { continue }
+              if ($tag -eq '<none>') { docker rmi $id | Out-Null } else { docker rmi "${image}:$tag" | Out-Null }
+            }
+            Set-Result "success"
+            exit 0
+          }
+
+          Write-Host "::error::v$env:VERSION tidak sehat setelah 3 menit."
+          $ErrorActionPreference = "Continue"
+          docker compose logs --tail 100 BE
+          $ErrorActionPreference = "Stop"
+
+          # 4. Rollback. Image target sudah ada di server.
+          if (-not $rollbackTag) {
+            Set-Result "failed"
             exit 1
           }
+          Write-Host "Rollback ke :$rollbackTag."
+          Set-ImageTag $rollbackTag
+          Invoke-Docker compose up -d --pull never BE
+          if (Test-Health $null 24) {
+            Set-Result "rolled-back:$rollbackTag"
+          } else {
+            Write-Host "::error::Rollback ke :$rollbackTag juga tidak sehat."
+            Set-Result "rollback-failed"
+          }
+          exit 1
 
-      - name: Notifikasi sukses
-        if: success()
+      - name: Notifikasi
+        if: always()
         shell: powershell
+        env:
+          RESULT: ${{ steps.deploy.outputs.result }}
         run: |
-         curl.exe -d "Deploy berhasil: commit ${{ github.sha }}" ntfy.sh/Deploy-Success
-
-      - name: Notifikasi gagal
-        if: failure()
-        shell: powershell
-        run: |
-         curl.exe -d "Deploy GAGAL: commit ${{ github.sha }}" ntfy.sh/Deploy-Failure
+          if (-not $env:NTFY_TOPIC) {
+            Write-Host "Secret NTFY_TOPIC belum diisi, notifikasi dilewati."
+            exit 0
+          }
+          $commit = $env:GITHUB_SHA
+          if ($env:RESULT -eq "success") {
+            $pesan = "Deploy BE v$env:VERSION berhasil (commit $commit)"
+          } elseif ($env:RESULT -like "rolled-back:*") {
+            $ke = $env:RESULT.Substring("rolled-back:".Length)
+            $pesan = "Deploy BE v$env:VERSION GAGAL, server dikembalikan ke :$ke (commit $commit)"
+          } elseif ($env:RESULT -eq "rollback-failed") {
+            $pesan = "Deploy BE v$env:VERSION GAGAL dan rollback juga gagal, server perlu dicek SEKARANG (commit $commit)"
+          } else {
+            $pesan = "Deploy BE v$env:VERSION GAGAL (mis. ditolak policy admission), cek log workflow (commit $commit)"
+          }
+          curl.exe -fsS -d $pesan "https://ntfy.sh/$env:NTFY_TOPIC"
+          exit 0

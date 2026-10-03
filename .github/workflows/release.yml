@@ -1,0 +1,78 @@
+# Rilis & deploy. Satu-satunya jalan kode sampai ke produksi.
+#
+# Setiap push ke main menjalankan CI (ci.yml) dulu. Hanya kalau CI lulus,
+# release-please membaca pesan commit (Conventional Commits) sejak rilis
+# terakhir:
+# - Ada feat/fix/perf atau "!" yang belum dirilis -> bot membuka atau
+#   memperbarui satu PR "chore(main): release x.y.z" berisi CHANGELOG.md dan
+#   kenaikan "version" di package.json. Belum ada yang di-deploy.
+# - PR rilis itu di-merge -> bot membuat tag vx.y.z + GitHub Release, lalu job
+#   "deploy" menjalankan deploy.yml (build, scan, DAST, sign -> deploy).
+# - Hanya refactor/ci/docs/chore/... -> tidak ada rilis, tidak ada deploy.
+#
+# CI sengaja di depan release-please, bukan di dalam deploy: dengan begitu tag
+# dan GitHub Release hanya dibuat untuk commit yang lulus CI. Kalau CI gagal
+# tepat saat PR rilis di-merge, PR itu tetap berlabel "autorelease: pending"
+# dan release-please membuat rilisnya di push berikutnya yang lulus.
+#
+# Deploy dipanggil dari workflow ini, bukan dari "on: release" di deploy.yml:
+# rilis yang dibuat dengan GITHUB_TOKEN tidak memicu workflow lain.
+#
+# Konfigurasi: release-please-config.json ("bootstrap-sha" = commit terakhir
+# sebelum release-please dipasang; riwayat sebelumnya tidak dibaca) dan
+# .release-please-manifest.json (versi terakhir yang dirilis; diperbarui bot,
+# jangan diedit manual, begitu juga "version" di package.json).
+#
+# Butuh Settings -> Actions -> General -> "Allow GitHub Actions to create and
+# approve pull requests" menyala, supaya bot boleh membuka PR rilis.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Dua push beruntun tidak boleh menjalankan dua rilis/deploy bersamaan; yang
+# kedua menunggu. Push yang lebih baru tetap aman: release-please menghitung
+# ulang semuanya dari riwayat, jadi rilis yang tertunda tidak hilang.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  release-please:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+
+  deploy:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    # Reusable workflow hanya bisa memakai permission yang diberikan di sini.
+    permissions:
+      contents: read
+      packages: write
+      id-token: write     # OIDC untuk Cosign keyless dan attestation
+      attestations: write # menyimpan attestation provenance
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}
+    secrets:
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
