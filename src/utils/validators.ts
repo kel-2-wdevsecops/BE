@@ -28,11 +28,21 @@ export const money = z
 export const isoDate = z.string().date('Must be a date in YYYY-MM-DD format').transform((v) => new Date(`${v}T00:00:00Z`));
 
 /**
+ * Parameter path sebagai string. Express 5 mengetik `req.params.x` sebagai
+ * `string | string[]` (array hanya untuk wildcard `*path`); route kita tidak
+ * memakai wildcard, jadi selain string non-kosong dijawab 404.
+ */
+export function strParam(value: string | string[] | undefined, entity: string): string {
+  if (typeof value !== 'string' || !value) throw httpError(404, `${entity} not found.`);
+  return value;
+}
+
+/**
  * Parameter path numerik (`/customers/:id`). Nilai yang bukan bilangan bulat
  * positif dijawab 404, sama seperti id yang tidak ada.
  */
-export function intParam(value: string, entity: string): number {
-  const parsed = intId.safeParse(value);
+export function intParam(value: string | string[] | undefined, entity: string): number {
+  const parsed = intId.safeParse(strParam(value, entity));
   if (!parsed.success) throw httpError(404, `${entity} not found.`);
   return parsed.data;
 }
