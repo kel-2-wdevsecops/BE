@@ -10,9 +10,7 @@ import { clientIp } from './utils/clientIp';
 import { apiLimiter, healthLimiter } from './middleware/rateLimit.middleware';
 
 // ── Route imports ─────────────────────────────────────────────────────────────
-import authRoutes    from './modules/auth/auth.routes';
-import usersRoutes   from './modules/users/users.routes';
-import officesRoutes from './modules/offices/offices.routes';
+// Satu router per modul di src/modules/<nama>/<nama>.routes.ts (lihat README).
 
 // ── Error middleware ──────────────────────────────────────────────────────────
 import { errorMiddleware } from './middleware/error.middleware';
@@ -27,22 +25,21 @@ if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY);
 // ── Security & Logging ────────────────────────────────────────────────────────
 app.use(helmet());
 // Origin yang tidak diizinkan cukup tidak diberi header CORS (browser yang
-// memblokir), bukan dilempar sebagai error 500. Autentikasi murni lewat
-// header Authorization, bukan cookie.
+// memblokir), bukan dilempar sebagai error 500. FE produksi memanggil API
+// lewat nginx-nya sendiri (origin yang sama), jadi CORS hanya untuk dev.
+// API ini hanya-baca: cuma GET.
 app.use(cors({
   origin: (origin, cb) => {
     cb(null, !origin || env.CORS_ORIGINS.includes(origin) || env.isDev);
   },
-  methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods:        ['GET', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
 }));
 morgan.token('remote-addr', (req) => clientIp(req));
 app.use(morgan(env.isDev ? 'dev' : 'combined'));
 
-// ── Body parsers ──────────────────────────────────────────────────────────────
-// Payload terbesar yang sah adalah order dengan 200 baris, jauh di bawah 1 MB.
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// Tidak ada body parser: semua endpoint GET, dan tanpa parser body request
+// apa pun tidak pernah dibaca.
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/', healthLimiter, (_req: Request, res: Response) => {
@@ -68,9 +65,8 @@ api.get('/health', healthLimiter, asyncHandler(async (_req: Request, res: Respon
 
 api.use(apiLimiter);
 
-api.use('/auth',    authRoutes);
-api.use('/users',   usersRoutes);
-api.use('/offices', officesRoutes);
+// Daftarkan router modul di sini, mis. api.use('/dashboard', dashboardRoutes).
+// Semua endpoint publik dan hanya-baca (GET), tanpa login.
 
 app.use('/api/v1', api);
 

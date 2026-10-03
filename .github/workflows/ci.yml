@@ -87,11 +87,10 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-  # Container produksi menjalankan `prisma migrate deploy` setiap start. Kalau
-  # sebuah migrasi rusak, itu baru ketahuan di server, setelah container lama
-  # dihentikan. Di sini semua migrasi diterapkan ke MariaDB kosong, lalu
-  # schema.prisma dibandingkan dengan hasilnya: kalau berbeda, ada perubahan
-  # skema yang lupa dibuatkan migrasi (mis. hanya di-`db:push`).
+  # Migrasi baseline (0_init) dipakai untuk membuat tabel DB kosong, mis. DB
+  # DAST di deploy.yml. Di sini semua migrasi diterapkan ke MariaDB kosong,
+  # lalu schema.prisma dibandingkan dengan hasilnya: kalau berbeda, ada
+  # perubahan skema yang lupa dibuatkan migrasi (mis. hanya di-`db:push`).
   migrations:
     name: Prisma migrations
     runs-on: ubuntu-latest

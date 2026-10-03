@@ -47,8 +47,6 @@ jobs:
         shell: powershell
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
         run: |
           $ErrorActionPreference = "Stop"
           Set-Location $env:DEPLOY_DIR
@@ -57,7 +55,7 @@ jobs:
 
           # Daftar nama variabel yang mau ditulis/diperbarui.
           # Harus cocok persis dengan nama di blok "env:" di atas.
-          $daftarVariabel = @("DATABASE_URL", "JWT_SECRET", "JWT_REFRESH_SECRET")
+          $daftarVariabel = @("DATABASE_URL")
 
           function Invoke-Docker {
             docker @args
