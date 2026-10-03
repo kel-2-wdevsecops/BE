@@ -20,8 +20,8 @@ services:
     # Desktop; baris ini untuk Docker Engine di Linux).
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Rahasia (DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET) TIDAK boleh
-    # ditulis di file ini — file ini ikut git. Ditulis workflow
+    # Rahasia (DATABASE_URL) TIDAK boleh ditulis di file ini — file ini
+    # ikut git. Ditulis workflow
     # update_env.yml ke .env server. `required: false` supaya validasi
     # `docker compose config` di CI (yang tidak punya .env) tetap lolos.
     env_file:
@@ -32,5 +32,3 @@ services:
       PORT: 3008
       NODE_ENV: production
       APP_NAME: "Axon Sales API"
-      JWT_EXPIRES_IN: 86400
-      JWT_REFRESH_EXPIRES_IN: 604800

@@ -17,12 +17,6 @@ const required = (key: string): string => {
   return val;
 };
 
-// Secret HMAC pendek bisa di-brute-force offline dari satu token saja.
-const jwtSecret = required('JWT_SECRET');
-if (jwtSecret.length < 32) {
-  throw new Error('JWT_SECRET must be at least 32 characters long.');
-}
-
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
   PORT:     parseInt(process.env.PORT ?? '3008', 10),
@@ -31,14 +25,6 @@ export const env = {
   APP_VERSION: appVersion,
 
   DATABASE_URL: required('DATABASE_URL'),
-
-  JWT_SECRET:             jwtSecret,
-  // Secret terpisah untuk refresh token, supaya refresh token tidak pernah
-  // bisa lolos verifikasi sebagai access token (dan sebaliknya). Kalau
-  // kosong, diturunkan dari JWT_SECRET (tetap beda nilai).
-  JWT_REFRESH_SECRET:     process.env.JWT_REFRESH_SECRET || `${jwtSecret}:refresh`,
-  JWT_EXPIRES_IN:         parseInt(process.env.JWT_EXPIRES_IN ?? '86400', 10),
-  JWT_REFRESH_EXPIRES_IN: parseInt(process.env.JWT_REFRESH_EXPIRES_IN ?? '604800', 10),
 
   CORS_ORIGINS: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
 
