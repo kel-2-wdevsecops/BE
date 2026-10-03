@@ -39,7 +39,7 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.12.1",
     "prisma": "^7.10.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
