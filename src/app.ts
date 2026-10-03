@@ -9,6 +9,10 @@ import { asyncHandler } from './utils/asyncHandler';
 import { clientIp } from './utils/clientIp';
 import { apiLimiter, healthLimiter } from './middleware/rateLimit.middleware';
 
+// ── Route imports ─────────────────────────────────────────────────────────────
+import authRoutes  from './modules/auth/auth.routes';
+import usersRoutes from './modules/users/users.routes';
+
 // ── Error middleware ──────────────────────────────────────────────────────────
 import { errorMiddleware } from './middleware/error.middleware';
 
@@ -63,7 +67,8 @@ api.get('/health', healthLimiter, asyncHandler(async (_req: Request, res: Respon
 
 api.use(apiLimiter);
 
-// Route modul dipasang di sini: api.use('/<resource>', <resource>Routes);
+api.use('/auth',  authRoutes);
+api.use('/users', usersRoutes);
 
 app.use('/api/v1', api);
 

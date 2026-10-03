@@ -19,6 +19,26 @@ datasource db {
   provider = "mysql"
 }
 
+// Peran akun API. `admin` boleh mengelola akun lain; `staff` hanya data.
+enum user_role {
+  admin
+  staff
+}
+
+// Akun login API (bukan bagian dump classicmodels). Password di-hash argon2.
+// `tokenVersion` dinaikkan untuk mencabut semua token milik akun itu
+// (logout, ganti password, reset oleh admin, akun dihapus).
+model users {
+  id           String    @id @default(uuid(7)) @db.Char(36)
+  email        String    @unique(map: "users_email_key") @db.VarChar(100)
+  password     String    @db.VarChar(255)
+  name         String    @db.VarChar(100)
+  role         user_role @default(staff)
+  tokenVersion Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
 model customers {
   customerNumber         Int        @id
   customerName           String     @db.VarChar(50)
