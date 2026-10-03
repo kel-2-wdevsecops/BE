@@ -28,6 +28,12 @@ updates:
       prefix: fix
       prefix-development: chore
       include: scope
+    ignore:
+      # Tipe Node harus sama dengan major runtime (NODE_VERSION di Dockerfile,
+      # node-version di ci.yml): @types/node yang lebih baru membolehkan API
+      # yang tidak ada saat dijalankan. Naikkan manual bersama runtime-nya.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # Satu PR untuk semua minor/patch, supaya tidak banjir PR. Major tetap
       # satu PR per paket karena biasanya butuh perubahan kode.
