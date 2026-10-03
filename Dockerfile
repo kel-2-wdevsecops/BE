@@ -8,7 +8,7 @@ ARG NODE_VERSION=24.21.0
 # mesin developer (dist/ tidak di-commit, src/generated ada di .dockerignore):
 # hasil `prisma generate` dari OS lain bisa berisi engine native yang salah
 # platform, dan image jadi tidak bisa menyambung ke DB.
-FROM node:${NODE_VERSION}-alpine AS build
+FROM docker.io/library/node:${NODE_VERSION}-alpine AS build
 
 WORKDIR /usr/src/app
 
@@ -29,7 +29,7 @@ RUN npm run build
 
 ################################################################################
 # Tahap final: hanya dependency produksi + hasil build.
-FROM node:${NODE_VERSION}-alpine
+FROM docker.io/library/node:${NODE_VERSION}-alpine
 
 # Use production node environment by default.
 ENV NODE_ENV production
@@ -41,33 +41,31 @@ ENV TZ=UTC
 
 WORKDIR /usr/src/app
 
-# Dependency di-install di dalam Alpine, jadi modul native (argon2) di-compile
-# untuk musl, bukan dibawa dari host.
+# Dependency di-install di dalam Alpine, bukan dibawa dari host. CLI `prisma`
+# (beserta Prisma Studio, ratusan MB) tidak boleh ikut: aplikasinya hanya
+# membaca data dan tidak pernah menjalankan migrasi. CLI itu devDependency,
+# tapi juga peer opsional @prisma/client, sehingga lockfile menandainya
+# `devOptional` dan `--omit=dev` saja tidak membuangnya. Produksi tidak punya
+# dependency opsional lain, jadi `--omit=optional` aman.
 RUN --mount=type=bind,source=package.json,target=package.json \
     --mount=type=bind,source=package-lock.json,target=package-lock.json \
     --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev
+    npm ci --omit=dev --omit=optional
 
 # Run the application as a non-root user.
 USER node
 
 COPY --chown=node:node --from=build /usr/src/app/dist ./dist
-COPY --chown=node:node ./prisma ./prisma
-COPY --chown=node:node ./prisma.config.ts ./
 COPY --chown=node:node ./package.json ./
 
 # Expose the port that the application listens on.
 EXPOSE 3008
 
-# Terapkan migrasi Prisma yang belum jalan (read-only terhadap migration
-# files, aman dipanggil berulang) sebelum server dinyalakan tiap kali
-# container start. Database yang sudah berisi dump classicmodels harus
-# ditandai sekali dengan `prisma migrate resolve --applied 0_init` (lihat
-# CLAUDE.md), kalau tidak migrasi 0_init gagal karena tabelnya sudah ada.
-# `prisma` sengaja ada di "dependencies" package.json supaya CLI-nya ikut
-# ter-install meski image pakai `npm ci --omit=dev`.
-# Server dijalankan dengan `exec node`, bukan `npm start`: sh dan npm tidak
-# meneruskan SIGTERM, jadi tanpa exec graceful shutdown di server.ts tidak
-# pernah jalan dan Docker membunuh proses (SIGKILL) setelah 10 detik.
-# compose.yaml juga memasang `init: true` (tini) sebagai PID 1.
-CMD ["sh", "-c", "npm run db:deploy && exec node dist/server.js"]
+# Tidak ada migrasi saat start: database server berisi dump classicmodels
+# yang diimpor sekali (lihat README), dan user DB aplikasi hanya punya hak
+# SELECT, jadi memang tidak bisa mengubah skema.
+# Server dijalankan dengan node langsung, bukan `npm start`: npm tidak
+# meneruskan SIGTERM, jadi graceful shutdown di server.ts tidak pernah jalan
+# dan Docker membunuh proses (SIGKILL) setelah 10 detik. compose.yaml juga
+# memasang `init: true` (tini) sebagai PID 1.
+CMD ["node", "dist/server.js"]

@@ -57,8 +57,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Database kosong untuk DAST: aplikasi keluar saat start kalau DB tidak
-    # tersambung, dan CMD-nya menjalankan `prisma migrate deploy` dulu.
+    # Database untuk DAST: aplikasi keluar saat start kalau DB tidak
+    # tersambung. Tabelnya dibuat dari migrasi baseline (tanpa data).
     services:
       mariadb:
         image: mariadb:11.8@sha256:93fc3fe333b6cdfb061425869c2c3a5bb2851c0c74dbebc2c940f024e7482d76
@@ -138,16 +138,24 @@ jobs:
           exit-code: '1'
           skip-setup-trivy: true
 
+      # Container produksi tidak menjalankan migrasi, jadi tabel classicmodels
+      # (kosong) dibuat di sini dari migrasi baseline, memakai client dari
+      # image MariaDB yang sama dengan service-nya. Tanpa tabel, endpoint
+      # dashboard hanya menjawab 500 dan DAST tidak menguji apa pun.
+      - name: Buat tabel untuk DAST
+        run: |
+          docker run --rm -i --network host \
+            mariadb:11.8@sha256:93fc3fe333b6cdfb061425869c2c3a5bb2851c0c74dbebc2c940f024e7482d76 \
+            mariadb -h 127.0.0.1 -u root -pdast dast < prisma/migrations/0_init/migration.sql
+
       # --network host: container menjangkau MariaDB service di
-      # 127.0.0.1:3306, dan ZAP menjangkau aplikasi di localhost. JWT_SECRET
-      # acak sekali pakai; database-nya kosong, jadi DAST hanya menguji
-      # permukaan yang bisa dicapai tanpa login (health, auth, 401/404).
+      # 127.0.0.1:3306, dan ZAP menjangkau aplikasi di localhost. Seluruh API
+      # publik dan hanya-baca, jadi ZAP menjangkau semua endpoint-nya.
       - name: Jalankan container untuk DAST
         run: |
           docker run -d --name app --network host \
             -e PORT="$APP_PORT" \
             -e DATABASE_URL="mysql://root:dast@127.0.0.1:3306/dast" \
-            -e JWT_SECRET="$(openssl rand -base64 48)" \
             be:scan
           for i in $(seq 1 30); do
             curl -fs "http://localhost:$APP_PORT/api/v1/health" && exit 0
