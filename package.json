@@ -1,6 +1,6 @@
 {
   "name": "axon_sales_backend",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "REST API untuk data penjualan Axon (database classicmodels).",
   "keywords": [
     "sales",
