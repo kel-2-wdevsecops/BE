@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/kel-2-wdevsecops/BE/compare/v1.0.0...v1.0.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deploy:** jalankan BE di network uts-net tanpa port terbuka ([971049e](https://github.com/kel-2-wdevsecops/BE/commit/971049ec267434b26daa88b808806683b3eae5fe))
+
 ## 1.0.0 (2026-10-03)
 
 
