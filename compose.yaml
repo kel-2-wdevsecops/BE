@@ -1,29 +1,30 @@
 services:
-  BE:
+  devsecops_be:
     # Tag versi yang jalan (mis. 1.2.0) ditulis workflow deploy sebagai
     # BE_TAG di .env server (D:\.server\kuliah\d4\devsecops\uts\.env);
     # compose membaca .env yang sama untuk interpolasi. Tanpa BE_TAG (mis.
     # saat validasi di CI) jatuh ke :latest.
     image: ghcr.io/kel-2-wdevsecops/be:${BE_TAG:-latest}
-    # Health check deploy.yml dan update_env.yml memanggil
-    # http://localhost:3008/api/v1/health dari host, jadi port wajib
-    # di-publish. Kalau akses publik lewat reverse proxy/tunnel di mesin yang
-    # sama, ganti menjadi "127.0.0.1:3008:3008" supaya tidak terbuka ke LAN.
-    ports:
-      - "3008:3008"
+    # Sengaja tanpa `ports`: port 3008 tidak di-publish ke host. FE (nginx),
+    # cloudflared, dan MySQL berada di network uts-net yang sama dan saling
+    # menjangkau lewat nama service/container (FE -> http://devsecops_be:3008,
+    # BE -> mysql:3306). Satu-satunya jalan masuk dari luar adalah Cloudflare
+    # Tunnel, syarat agar header CF-Connecting-IP bisa dipercaya (lihat
+    # BEHIND_CLOUDFLARE di bawah). Health check workflow berjalan di dalam
+    # container (`docker compose exec`). Kalau perlu akses dari host untuk
+    # debug, pakai "127.0.0.1:3008:3008", jangan "3008:3008" (terbuka ke LAN).
     restart: unless-stopped
     # tini sebagai PID 1: meneruskan SIGTERM ke Node (graceful shutdown di
     # server.ts) dan membereskan proses zombie. Lihat CMD di Dockerfile.
     init: true
-    # MariaDB/MySQL berjalan di host server, bukan di container: dari dalam
-    # container host dijangkau lewat host.docker.internal (bawaan Docker
-    # Desktop; baris ini untuk Docker Engine di Linux).
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - uts-net
     # Rahasia (DATABASE_URL) TIDAK boleh ditulis di file ini — file ini
-    # ikut git. Ditulis workflow
-    # update_env.yml ke .env server. `required: false` supaya validasi
-    # `docker compose config` di CI (yang tidak punya .env) tetap lolos.
+    # ikut git. Ditulis workflow update_env.yml ke .env server. Host DB di
+    # DATABASE_URL = nama container MySQL di network uts-net, mis.
+    # mysql://classicmodels_app:...@mysql:3306/classicmodels.
+    # `required: false` supaya validasi `docker compose config` di CI (yang
+    # tidak punya .env) tetap lolos.
     env_file:
       - path: .env
         required: false
@@ -32,3 +33,18 @@ services:
       PORT: 3008
       NODE_ENV: production
       APP_NAME: "Axon Sales API"
+      # Semua akses lewat Cloudflare Tunnel: IP client dibaca dari header
+      # CF-Connecting-IP (diteruskan apa adanya oleh nginx FE). Tanpa ini
+      # semua pengunjung terlihat ber-IP sama (container nginx/cloudflared)
+      # dan rate limiter berlaku global. Aman hanya selama BE dan FE tidak
+      # bisa dijangkau tanpa lewat Cloudflare: karena itu tidak ada `ports`.
+      BEHIND_CLOUDFLARE: "true"
+
+# Network bersama dengan FE, cloudflared, dan MySQL. Dibuat sekali di server
+# (`docker network create uts-net`); workflow deploy juga membuatnya kalau
+# belum ada. `external`: compose tidak membuat atau menghapusnya, jadi
+# `docker compose down` di repo ini tidak memutus container lain.
+networks:
+  uts-net:
+    external: true
+    name: uts-net

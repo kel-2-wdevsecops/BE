@@ -113,10 +113,32 @@ Pesan commit wajib [Conventional Commits](https://www.conventionalcommits.org/).
 
 Pengecualian kerentanan yang diterima ada di `.trivyignore`, lengkap dengan alasan dan tanggal kedaluwarsa. Paket-paket itu hanya ada di CLI Prisma (devDependency), tidak di image produksi.
 
+### Topologi server
+
+Semua container berada di satu network Docker, `uts-net`, dan **tidak ada port aplikasi yang di-publish ke host**:
+
+```text
+internet -> Cloudflare -> cloudflared --uts-net--> devsecops_fe (nginx :8080)
+                                                     | /api/
+                                                     v
+                                                   devsecops_be (:3008) --> mysql (:3306)
+```
+
+- BE (`compose.yaml` repo ini) dan FE (`compose.yaml` repo FE) di-deploy terpisah, tapi keduanya bergabung ke `uts-net` dan saling menjangkau lewat nama service.
+- `BEHIND_CLOUDFLARE=true`: IP pengunjung dibaca dari header `CF-Connecting-IP`. Ini hanya aman karena BE dan FE tidak bisa dijangkau tanpa lewat Cloudflare.
+- Health check workflow berjalan di dalam container (`docker compose exec ... wget`), bukan lewat port host.
+
 ### Persiapan server (sekali, sebelum merge PR rilis pertama)
 
 Server: self-hosted runner Windows, folder `D:\.server\kuliah\d4\devsecops\uts`.
 
-1. Impor dump ke DB server, lalu buat user aplikasi dengan `GRANT SELECT` saja (langkah 1–2 di atas).
-2. Isi GitHub Secrets `DATABASE_URL` (host `host.docker.internal` dari dalam container) dan `NTFY_TOPIC`. Lalu jalankan workflow **Update Env Variables**.
-3. Nyalakan "Allow GitHub Actions to create and approve pull requests" (Settings → Actions → General, di tingkat organisasi lalu repo).
+1. Buat network: `docker network create uts-net`. Workflow deploy juga membuatnya kalau belum ada.
+2. Jalankan container MySQL/MariaDB dan cloudflared di network itu (`--network uts-net`, atau `networks: [uts-net]` dengan `external: true` di compose masing-masing). Port MySQL tidak perlu di-publish ke host.
+3. Impor dump ke container MySQL, lalu buat user aplikasi dengan `GRANT SELECT` saja (langkah 1–2 di atas). Host user-nya `'%'` atau subnet `uts-net`, karena koneksi datang dari container lain, bukan `localhost`.
+4. Isi GitHub Secrets:
+   - `DATABASE_URL`, dengan host berupa nama container MySQL, mis. `mysql://classicmodels_app:<pw>@mysql:3306/classicmodels`.
+   - `NTFY_TOPIC`.
+
+   Lalu jalankan workflow **Update Env Variables**.
+5. Arahkan public hostname di Cloudflare Tunnel ke `http://devsecops_fe:8080`. API ikut lewat proxy `/api/` milik nginx FE. Kalau perlu hostname API terpisah, arahkan ke `http://devsecops_be:3008`.
+6. Nyalakan "Allow GitHub Actions to create and approve pull requests" (Settings → Actions → General, di tingkat organisasi lalu repo).
