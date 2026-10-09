@@ -127,7 +127,7 @@ Status per 6 Oktober 2026. Baseline repo BE: boilerplate v1.0.1 (skema Prisma, c
 | F00 | Fondasi API: validasi, cache, keamanan | P0 | semua | `feat/f00-fondasi-api` | – | 🟩 | – | [F00](features/F00-fondasi-api-keamanan.md) |
 | F06 | Endpoint pilihan filter | P0 | `GET /dashboard/filters` | `feat/f06-filter-tautan` | F00 | 🟩 | – | [F06](features/F06-filter-tautan.md) |
 | F01 | Ringkasan penjualan | P0 | `GET /dashboard/overview` | `feat/f01-ringkasan` | F00 | 🟩 | – | [F01](features/F01-ringkasan.md) |
-| F02 | Analisis produk | P0 | `GET /dashboard/products` | `feat/f02-produk` | F00 | 🟨 | – | [F02](features/F02-produk.md) |
+| F02 | Analisis produk | P0 | `GET /dashboard/products` | `feat/f02-produk` | F00 | 🟩 | – | [F02](features/F02-produk.md) |
 | F03 | Analisis pertumbuhan | P0 | `GET /dashboard/growth` | `feat/f03-pertumbuhan` | F00 | ⬜ | – | [F03](features/F03-pertumbuhan.md) |
 | F04 | Pelanggan dan tim sales | P1 | `GET /dashboard/customers` | `feat/f04-pelanggan-tim-sales` | F00 | ⬜ | – | [F04](features/F04-pelanggan-tim-sales.md) |
 | F05 | Operasional order | P1 (piutang P2) | `GET /dashboard/operations` | `feat/f05-operasional-order` (piutang: `feat/f05-piutang`) | F00 | ⬜ | – | [F05](features/F05-operasional-order.md) |
