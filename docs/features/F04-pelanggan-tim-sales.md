@@ -57,32 +57,32 @@ Membantu manajer sales mengenali pelanggan bernilai tinggi, prospek yang belum p
 ## Langkah Pengerjaan
 
 - [ ] 1. Buat branch `feat/f04-pelanggan-tim-sales` dari `main` terbaru (F00 BE sudah ter-merge); ubah status F04 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. `src/modules/customers/customers.dto.ts`: skema strict `year`, `continent`, `country` memakai skema bersama F00.
-- [ ] 3. `customers.service.ts`, query paralel (`Promise.all`) dengan WHERE dari `sqlFilters.ts`:
+- [x] 2. `src/modules/customers/customers.dto.ts`: skema strict `year`, `continent`, `country` memakai skema bersama F00.
+- [x] 3. `customers.service.ts`, query paralel (`Promise.all`) dengan WHERE dari `sqlFilters.ts`:
   - `kpi`: `customers`, `prospects`, `withoutSalesRep` (tidak terpengaruh filter waktu); `activeCustomers`, `avgOrderValue` (terpengaruh filter waktu).
   - `topCustomers` (10 teratas): nama perusahaan, negara, penjualan, order, `sharePct` terhadap penjualan total pada filter yang sama. Tanpa nama kontak, telepon, alamat.
   - `salesReps`: hanya jabatan `Sales Rep` (17 orang), LEFT JOIN agar rep tanpa customer tampil dengan nilai 0.
   - `offices`: per kantor (kota, negara, territory, customer, penjualan).
   - `creditSegments`: 4 segmen dengan batas `none` = 0, `low` > 0 dan < 10.000, `medium` 10.000–75.000, `high` > 75.000; agregat saja, tanpa credit limit per customer.
-- [ ] 4. Hindari pola keliru dari `Axon SQL.sql` (no. 3, 22, 24, 26) sesuai aturan bisnis; jangan menggandakan baris dengan join ke `payments`/`orderdetails` tanpa agregasi.
-- [ ] 5. Bungkus dengan `createTtlCache` dan `cacheKey`; tipe respons eksplisit, tanpa field terlarang.
-- [ ] 6. `customers.controller.ts`, `customers.routes.ts`; daftarkan `api.use('/dashboard/customers', customersRoutes)` di `src/app.ts`.
-- [ ] 7. Pastikan DB kosong → 200 (pembagian aman nol, `avgOrderValue` = `null` atau 0 secara konsisten).
-- [ ] 8. Asersi angka emas ke harness; tes kontrak: respons tidak memuat kunci `phone`, `email`, `contactFirstName`, `creditLimit`.
+- [x] 4. Hindari pola keliru dari `Axon SQL.sql` (no. 3, 22, 24, 26) sesuai aturan bisnis; jangan menggandakan baris dengan join ke `payments`/`orderdetails` tanpa agregasi.
+- [x] 5. Bungkus dengan `createTtlCache` dan `cacheKey`; tipe respons eksplisit, tanpa field terlarang.
+- [x] 6. `customers.controller.ts`, `customers.routes.ts`; daftarkan `api.use('/dashboard/customers', customersRoutes)` di `src/app.ts`.
+- [x] 7. Pastikan DB kosong → 200 (pembagian aman nol, `avgOrderValue` = `null` atau 0 secara konsisten).
+- [x] 8. Asersi angka emas ke harness; tes kontrak: respons tidak memuat kunci `phone`, `email`, `contactFirstName`, `creditLimit`.
 - [ ] 9. Catat keputusan Q3 (nama sales rep boleh tampil) di PRD §12; bila tidak, ganti `name` menjadi nomor karyawan/anonim dan samakan dengan dokumen FE.
-- [ ] 10. `npm run lint`, `npm test`, `npm run build` hijau.
-- [ ] 11. Commit terakhir: status F04 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 10. `npm run lint`, `npm test`, `npm run build` hijau.
+- [x] 11. Commit terakhir: status F04 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 
-- [ ] Tanpa filter: 122 customer, 98 aktif, 24 prospek, 22 tanpa sales rep, rata-rata nilai order 29.460,71.
-- [ ] Top 2 customer: Euro+ Shopping Channel 820.689,54 (26 order) dan Mini Gifts Distributors Ltd. 591.827,34 (17 order).
-- [ ] Jumlah customer per rep tertinggi: Pamela Castillo 10, Barry Jones 9 (sama dengan PPTX slide 14).
-- [ ] Penjualan rep tertinggi: Gerard Hernandez 1.258.577,81.
-- [ ] Penjualan kantor: Paris 3.083.761,58 tertinggi, Tokyo 457.110,07 terendah; total 7 kantor = 9.604.190,61.
-- [ ] Segmen credit limit: 24 / 0 / 36 / 62.
-- [ ] Tom King dan Yoshimi Kato muncul di `salesReps` dengan 0 customer.
-- [ ] Respons tidak memuat kunci `phone`, `email`, `contactFirstName`, `creditLimit`.
+- [x] Tanpa filter: 122 customer, 98 aktif, 24 prospek, 22 tanpa sales rep, rata-rata nilai order 29.460,71.
+- [x] Top 2 customer: Euro+ Shopping Channel 820.689,54 (26 order) dan Mini Gifts Distributors Ltd. 591.827,34 (17 order).
+- [x] Jumlah customer per rep tertinggi: Pamela Castillo 10, Barry Jones 9 (sama dengan PPTX slide 14).
+- [x] Penjualan rep tertinggi: Gerard Hernandez 1.258.577,81.
+- [x] Penjualan kantor: Paris 3.083.761,58 tertinggi, Tokyo 457.110,07 terendah; total 7 kantor = 9.604.190,61.
+- [x] Segmen credit limit: 24 / 0 / 36 / 62.
+- [x] Tom King dan Yoshimi Kato muncul di `salesReps` dengan 0 customer.
+- [x] Respons tidak memuat kunci `phone`, `email`, `contactFirstName`, `creditLimit`.
 
 ## Definisi Selesai
 

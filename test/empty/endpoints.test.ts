@@ -12,6 +12,8 @@ const ENDPOINTS = [
   '/dashboard/products?productLine=Ships&productLine=Trains&year=2004&month=1',
   '/dashboard/growth',
   '/dashboard/growth?year=2004',
+  '/dashboard/customers',
+  '/dashboard/customers?year=2004&continent=Asia&country=Japan',
 ];
 
 const get = useApi();
