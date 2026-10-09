@@ -6,6 +6,8 @@ import { useApi } from '../helpers/api';
 // Fitur baru menambahkan path-nya ke daftar ini.
 const ENDPOINTS = [
   '/dashboard/filters',
+  '/dashboard/overview',
+  '/dashboard/overview?year=2004&month=1&continent=Europe&country=Norway',
 ];
 
 const get = useApi();

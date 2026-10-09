@@ -56,30 +56,30 @@ Semua parameter opsional. `month` tanpa `year` berarti bulan itu di semua tahun.
 ## Langkah Pengerjaan
 
 - [ ] 1. Buat branch `feat/f01-ringkasan` dari `main` terbaru (F00 BE sudah ter-merge); ubah status F01 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. `src/modules/overview/overview.dto.ts`: skema strict `year`, `month`, `continent`, `country` memakai skema bersama F00.
-- [ ] 3. `overview.service.ts`, query paralel (`Promise.all`) dengan WHERE dari `sqlFilters.ts`:
+- [x] 2. `src/modules/overview/overview.dto.ts`: skema strict `year`, `month`, `continent`, `country` memakai skema bersama F00.
+- [x] 3. `overview.service.ts`, query paralel (`Promise.all`) dengan WHERE dari `sqlFilters.ts`:
   - KPI waktu+geografi: `sales`, `profit`, `orders`, `activeCustomers`; `profitMarginPct` dihitung aman nol.
   - `customers` (terdaftar, hanya filter geografi) dan `employees` (total, tanpa filter).
   - `topCountriesBySales` (5 teratas), `customersByContinent` (via `continents.ts`), `customersByCountry` (maksimal 27 baris, membawa `continent`).
   - `salesByYear` dengan `isPartial` (tahun 2005).
-- [ ] 4. Terapkan aturan: `month` tanpa `year` = bulan itu di semua tahun; semua `TRIM(country)`.
-- [ ] 5. Bungkus dengan `createTtlCache` dan `cacheKey(filter)`; definisikan tipe respons eksplisit (bukan objek Prisma mentah).
-- [ ] 6. `overview.controller.ts` (dibungkus `asyncHandler`, header `Cache-Control`), `overview.routes.ts` (hanya `GET`); daftarkan `api.use('/dashboard/overview', overviewRoutes)` di `src/app.ts`.
-- [ ] 7. Pastikan DB kosong → 200 dengan nilai nol/array kosong.
-- [ ] 8. Unit test DTO; asersi angka emas (semua kriteria di bawah) ke harness `npm run test:golden`; tes kontrak kunci terlarang.
-- [ ] 9. Bukti kriteria F00 pada endpoint nyata: `?foo=1` → 422, `?year=abc`/`?month=13`/`?continent=Mars` → 422, header `Cache-Control` ada.
-- [ ] 10. `npm run lint`, `npm test`, `npm run build` hijau.
-- [ ] 11. Commit terakhir: status F01 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 4. Terapkan aturan: `month` tanpa `year` = bulan itu di semua tahun; semua `TRIM(country)`.
+- [x] 5. Bungkus dengan `createTtlCache` dan `cacheKey(filter)`; definisikan tipe respons eksplisit (bukan objek Prisma mentah).
+- [x] 6. `overview.controller.ts` (dibungkus `asyncHandler`, header `Cache-Control`), `overview.routes.ts` (hanya `GET`); daftarkan `api.use('/dashboard/overview', overviewRoutes)` di `src/app.ts`.
+- [x] 7. Pastikan DB kosong → 200 dengan nilai nol/array kosong.
+- [x] 8. Unit test DTO; asersi angka emas (semua kriteria di bawah) ke harness `npm run test:golden`; tes kontrak kunci terlarang.
+- [x] 9. Bukti kriteria F00 pada endpoint nyata: `?foo=1` → 422, `?year=abc`/`?month=13`/`?continent=Mars` → 422, header `Cache-Control` ada.
+- [x] 10. `npm run lint`, `npm test`, `npm run build` hijau.
+- [x] 11. Commit terakhir: status F01 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 
-- [ ] Tanpa filter: penjualan 9.604.190,61; profit 3.825.880,25; margin 39,84 %; 326 order; 122 customer; 98 customer aktif; 23 karyawan.
-- [ ] Customer per benua: Europe 64, North America 39, Asia 9, Oceania 9, Africa 1.
-- [ ] Top 5 negara: USA 3.273.280,05; Spain 1.099.389,09; France 1.007.374,02; Australia 562.582,59; New Zealand 476.847,01.
-- [ ] Penjualan per tahun: 2003 3.317.348,39; 2004 4.515.905,51; 2005 1.770.936,71 (`isPartial: true`).
-- [ ] `year=2004`: penjualan 4.515.905,51; profit 1.809.381,14; 151 order.
-- [ ] Norway tampil sebagai satu negara dengan 3 customer.
-- [ ] Parameter tak dikenal atau nilai di luar enum → 422; DB kosong → 200.
+- [x] Tanpa filter: penjualan 9.604.190,61; profit 3.825.880,25; margin 39,84 %; 326 order; 122 customer; 98 customer aktif; 23 karyawan.
+- [x] Customer per benua: Europe 64, North America 39, Asia 9, Oceania 9, Africa 1.
+- [x] Top 5 negara: USA 3.273.280,05; Spain 1.099.389,09; France 1.007.374,02; Australia 562.582,59; New Zealand 476.847,01.
+- [x] Penjualan per tahun: 2003 3.317.348,39; 2004 4.515.905,51; 2005 1.770.936,71 (`isPartial: true`).
+- [x] `year=2004`: penjualan 4.515.905,51; profit 1.809.381,14; 151 order.
+- [x] Norway tampil sebagai satu negara dengan 3 customer.
+- [x] Parameter tak dikenal atau nilai di luar enum → 422; DB kosong → 200.
 
 Kriteria tampilan (klik bar, responsif mobile) ada di dokumen FE.
 
