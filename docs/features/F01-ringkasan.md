@@ -8,7 +8,7 @@
 | Endpoint | `GET /api/v1/dashboard/overview` |
 | Padanan Power BI | Halaman **Home** |
 | Bergantung pada | BE F00 (dan F06 BE bila `continent`/`country` diuji lintas-modul) |
-| Status | ⬜ Belum mulai |
+| Status | 🟨 Sedang dikerjakan |
 
 ## Tujuan
 
