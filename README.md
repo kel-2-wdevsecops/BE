@@ -1,8 +1,6 @@
 # Axon Sales API (BE)
 
-Kerangka (boilerplate) API **publik dan hanya-baca** untuk dashboard penjualan Axon, retailer miniatur mobil klasik. Datanya adalah database MySQL `classicmodels` (dump-nya ada di folder `Context/` di samping folder repo ini). Dashboard-nya meniru laporan Power BI Axon (tiga halaman: Ringkasan, Produk, Pertumbuhan).
-
-Repo ini baru berisi fondasi: skema Prisma, konfigurasi, middleware keamanan, util, health check, dan pipeline CI/CD. Modul dashboard-nya dibangun di `src/modules/` dengan pola di bawah.
+API **publik dan hanya-baca** untuk dashboard penjualan Axon, retailer miniatur mobil klasik. Datanya adalah database MySQL `classicmodels` (dump-nya ada di folder `Context/` di samping folder repo ini). Dashboard-nya meniru laporan Power BI Axon (Ringkasan, Produk, Pertumbuhan) dan menambah halaman Pelanggan, Operasional, serta sorotan insight. Rinciannya di `docs/PRD.md`.
 
 Tidak ada login, akun, maupun endpoint tulis: dump aslinya tidak punya tabel pengguna, dan dashboard memang terbuka untuk umum. Karena hanya membaca, user DB aplikasi cukup punya hak `SELECT`.
 
@@ -25,7 +23,7 @@ Stack: Node.js 24, TypeScript, Express 5, Prisma 7 (adapter `mariadb`, kompatibe
    npm install
    npm run db:generate
    ```
-5. `npm run dev` lalu buka `http://localhost:3008/api/v1/health`.
+5. `npm run dev` lalu buka `http://localhost:3008/api/v1/dashboard/overview`.
 
 ## Perintah
 
@@ -35,6 +33,7 @@ Stack: Node.js 24, TypeScript, Express 5, Prisma 7 (adapter `mariadb`, kompatibe
 | `npm run build` / `npm start` | Kompilasi ke `dist/` / jalankan hasilnya |
 | `npm test` | Unit test (Vitest, file `*.test.ts` di samping kodenya) |
 | `npm run test:golden` | Tes angka emas: endpoint dipanggil lewat HTTP terhadap DB berisi dump (`test/golden/`) |
+| `npm run test:empty` | Semua endpoint 200 pada DB kosong (`test/empty/`); `DATABASE_URL` harus menunjuk DB hasil `db:deploy` |
 | `npm run lint` | ESLint, warning pun gagal (sama dengan CI) |
 | `npm run db:generate` | Generate Prisma client ke `src/generated/prisma` (tidak di-commit) |
 | `npm run db:pull` | Introspeksi ulang DB ke `prisma/schema.prisma` |
@@ -49,24 +48,26 @@ prisma/
 src/
   app.ts                 middleware global, /health, pendaftaran route modul
   server.ts              bootstrap + graceful shutdown
-  config/                env (divalidasi saat start) & Prisma client
+  config/                env (divalidasi saat start), Prisma client, ambang (thresholds.ts)
   middleware/            error handler (Zod -> 422), rate limit
   lib/                   fungsi murni bersama (+ test): money, continents, filters (cacheKey),
-                         sqlFilters, querySchemas (skema Zod), cache
-  modules/               satu folder per endpoint dashboard
+                         sqlFilters, querySchemas (skema Zod), cache, growth, insights
+  modules/               satu folder per endpoint: filters, overview, products, growth,
+                         customers, operations, insights
   utils/                 ApiResponse, asyncHandler, clientIp, ttlCache
 test/
   fixtures/              dump classicmodels untuk tes angka emas
   golden/                tes angka emas per fitur (butuh DB berisi dump)
+  empty/                 semua endpoint 200 pada DB kosong (hasil migrasi saja)
   helpers/               app di port acak (`useApi`), pemeriksa kunci terlarang
 .semgrep/                aturan Semgrep custom (larangan $queryRawUnsafe) + contohnya
 ```
 
 ## Menambah modul
 
-Satu folder per modul, mis. `src/modules/dashboard/`:
+Satu folder per endpoint, mis. `src/modules/overview/`:
 
-- **`<nama>.routes.ts`**: `Router` Express, hanya `GET`. Daftarkan di `src/app.ts`: `api.use('/<nama>', <nama>Routes)`.
+- **`<nama>.routes.ts`**: `Router` Express, hanya `GET`. Daftarkan di `src/app.ts`: `api.use('/dashboard/<nama>', <nama>Routes)`.
 - **`<nama>.controller.ts`**: tipis. Parse query string dengan DTO, panggil service, kirim `ApiResponse.cached` (menambah `Cache-Control: public, max-age=300`). Setiap handler dibungkus `asyncHandler`, supaya error (termasuk `ZodError` -> 422) sampai ke error middleware.
 - **`<nama>.dto.ts`**: `z.object({...}).strict()` dari skema bersama di `lib/querySchemas.ts`. Nilai yang tidak valid dan parameter tak dikenal ditolak 422, bukan ditebak.
 - **`<nama>.service.ts`**: query Prisma. Agregat lintas tabel boleh `prisma.$queryRaw` **tagged template** (nilai filter jadi parameter terikat); jangan pernah `$queryRawUnsafe` atau string SQL yang digabung manual. Potongan kondisi dinamis disusun dengan `lib/sqlFilters.ts`. Loader dibungkus `cached()` dari `lib/cache.ts`. Semgrep custom di CI menolak `$queryRawUnsafe`/`$executeRaw*`.
@@ -77,27 +78,35 @@ Catatan data:
 - Angka yang bisa dicocokkan dengan PRD ditambahkan sebagai asersi di `test/golden/<fitur>.test.ts`, beserta pemeriksaan `forbiddenKeys` (minimasi data).
 - Ada nilai negara dengan spasi di belakang (`"Norway  "`); trim sebelum dipakai sebagai label.
 
-## Target dashboard
+## API
 
-Tiga halaman, meniru laporan Power BI Axon (screenshot ada pada tim). Semua endpoint di bawah `/api/v1`, format `{ success, message, data, errors? }`.
+Semua di bawah `/api/v1`, hanya `GET`, tanpa login, format `{ success, message, data, errors? }`. Kontrak lengkap (bentuk respons dan aturan bisnis) ada di `docs/features/`; daftar fitur dan statusnya di `docs/PRD.md` §7.
 
-| Halaman | Isi | Filter |
+| Endpoint | Fitur | Filter |
 |---|---|---|
-| Ringkasan | total penjualan, profit, customer, karyawan; customer per benua & per negara; top 5 negara; penjualan per tahun | tahun, benua, negara |
-| Produk | penjualan per produk, order per bulan & per tahun, penjualan per product line, top 5 vendor | product line (pilihan ganda) |
-| Pertumbuhan | tabel YoY, QoQ, MoM (dengan nilai periode sebelumnya), penjualan & profit per tahun | tahun |
+| `GET /health` | cek DB + versi rilis (dipakai CI/CD) | – |
+| `GET /dashboard/filters` | F06: pilihan filter (rentang data, tahun, benua, negara, product line, status) | – |
+| `GET /dashboard/overview` | F01: KPI, top 5 negara, customer per benua/negara, penjualan per tahun | `year`, `month`, `continent`, `country` |
+| `GET /dashboard/products` | F02: KPI, penjualan per product line, order per tahun/bulan, top 5 vendor, semua produk | `productLine` (boleh berulang), `year`, `month` |
+| `GET /dashboard/growth` | F03: YoY, QoQ, MoM, YTD, penjualan & profit per tahun | `year` |
+| `GET /dashboard/customers` | F04: KPI pelanggan, top 10 customer, sales rep, kantor, segmen credit limit | `year`, `continent`, `country` |
+| `GET /dashboard/operations` | F05: KPI fulfillment, penjualan per status, order perlu perhatian, lama kirim | `year`, `status` |
+| `GET /dashboard/insights` | F07: 5–9 sorotan insight beserta rekomendasi | – |
 
-Definisi angka, supaya hasilnya bisa dicocokkan dengan Power BI:
+Nilai di luar daftar (`continent=Mars`, `month=13`) dan parameter tak dikenal dijawab 422. Respons sukses membawa `Cache-Control: public, max-age=300`.
+
+Definisi angka (PRD §6), supaya hasilnya bisa dicocokkan dengan Power BI:
 
 - **Penjualan** = `SUM(quantityOrdered × priceEach)`, **profit** = `SUM(quantityOrdered × (priceEach − buyPrice))`, dari semua order termasuk yang Cancelled. Total tanpa filter: penjualan 9.604.190,61, profit 3.825.880,25; 122 customer, 23 karyawan, 110 produk, 326 order.
-- **Benua** tidak ada di dump; perlu peta negara -> benua di kode (27 negara customer).
-- **Growth** dibandingkan dengan periode kalender sebelumnya (Januari 2004 vs Desember 2003). Periode tanpa pembanding tampil "—", bukan "Infinity" seperti di Power BI. Data 2005 hanya sampai Mei.
+- **Benua** tidak ada di dump; dipetakan di `lib/continents.ts` mengikuti Power BI (Russia dan Israel di Asia).
+- **Growth** dibandingkan dengan periode kalender sebelumnya (Januari 2004 vs Desember 2003). Periode tanpa pembanding bernilai `null`, bukan "Infinity". Data 2005 hanya sampai Mei (`isPartial: true`).
 
-### Keamanan endpoint publik (sudah terpasang)
+### Keamanan endpoint publik
 
-- Rate limit 120 request/menit per IP untuk seluruh `/api/v1` (`middleware/rateLimit.middleware.ts`).
+- User DB hanya `SELECT`. Query lintas tabel memakai `$queryRaw` tagged template; Semgrep custom menolak `$queryRawUnsafe`/`$executeRaw*`.
+- Minimasi data: tidak ada telepon, alamat, email, nama kontak, atau credit limit per customer di respons (diperiksa tes kontrak).
+- Rate limit 120 request/menit per IP untuk seluruh `/api/v1`; hasil agregat di-cache 5 menit (maks. 500 entri per endpoint).
 - Tanpa body parser, CORS hanya `GET`, header keamanan lewat helmet.
-- User DB hanya `SELECT`.
 
 ## Skema
 

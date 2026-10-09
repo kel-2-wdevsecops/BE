@@ -16,6 +16,7 @@ const ENDPOINTS = [
   '/dashboard/customers?year=2004&continent=Asia&country=Japan',
   '/dashboard/operations',
   '/dashboard/operations?year=2004&status=On%20Hold',
+  '/dashboard/insights',
 ];
 
 const get = useApi();
@@ -25,5 +26,9 @@ describe('DB kosong', () => {
     const res = await get(path);
     expect(res.status).toBe(200);
     expect(JSON.stringify(res.body)).not.toMatch(/NaN|Infinity/);
+  });
+
+  it('insights = array kosong', async () => {
+    expect((await get('/dashboard/insights')).body.data).toEqual([]);
   });
 });
