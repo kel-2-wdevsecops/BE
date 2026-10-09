@@ -11,6 +11,7 @@ import { apiLimiter, healthLimiter } from './middleware/rateLimit.middleware';
 
 // ── Route imports ─────────────────────────────────────────────────────────────
 // Satu router per modul di src/modules/<nama>/<nama>.routes.ts (lihat README).
+import filtersRoutes from './modules/filters/filters.routes';
 
 // ── Error middleware ──────────────────────────────────────────────────────────
 import { errorMiddleware } from './middleware/error.middleware';
@@ -65,8 +66,8 @@ api.get('/health', healthLimiter, asyncHandler(async (_req: Request, res: Respon
 
 api.use(apiLimiter);
 
-// Daftarkan router modul di sini, mis. api.use('/dashboard', dashboardRoutes).
-// Semua endpoint publik dan hanya-baca (GET), tanpa login.
+// Dashboard publik, hanya-baca (GET), tanpa login. Satu endpoint per halaman.
+api.use('/dashboard/filters', filtersRoutes);
 
 app.use('/api/v1', api);
 

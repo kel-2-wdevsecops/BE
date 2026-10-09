@@ -131,6 +131,14 @@ jobs:
       - name: Skema sesuai dengan migrasi
         run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
+      # DB ini kosong, sama dengan DB DAST di deploy.yml: semua endpoint
+      # dashboard harus tetap 200 (test/empty/).
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Endpoint 200 pada DB kosong
+        run: npm run test:empty
+
   # Tes angka emas (PRD §9): dump classicmodels (test/fixtures) diimpor ke
   # MariaDB, lalu endpoint dipanggil lewat HTTP dan angkanya dibandingkan dengan
   # kriteria penerimaan tiap fitur (test/golden/).

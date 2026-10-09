@@ -50,27 +50,27 @@ Tabel ini menentukan parameter yang diterima tiap endpoint; DTO tiap endpoint me
 ## Langkah Pengerjaan
 
 - [ ] 1. Buat branch `feat/f06-filter-tautan` dari `main` terbaru (setelah F00 BE ter-merge); ubah status F06 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. `src/modules/filters/filters.dto.ts`: skema `z.object({}).strict()` (tanpa parameter; parameter apa pun → 422).
-- [ ] 3. `filters.service.ts`, query paralel (`Promise.all`): rentang `MIN/MAX(orderDate)` → `dataRange`; tahun berbeda dari `orderDate` → `years`; negara berbeda `TRIM(country)` dari `customers`; nama product line; status order berbeda. Semuanya diurutkan.
-- [ ] 4. Petakan tiap negara ke benua lewat `continents.ts`; `continents` berasal dari enum benua yang sama.
-- [ ] 5. Bungkus loader dengan `createTtlCache` (key tetap karena tanpa parameter).
-- [ ] 6. `filters.controller.ts` (dibungkus `asyncHandler`, header `Cache-Control: public, max-age=300`) dan `filters.routes.ts` (hanya `GET`); daftarkan `api.use('/dashboard/filters', filtersRoutes)` di `src/app.ts`.
-- [ ] 7. Pastikan DB kosong → 200 dengan array kosong dan `dataRange` berisi `null`.
-- [ ] 8. Unit test DTO dan transformasi data; asersi angka emas ke harness F00.
-- [ ] 9. Dokumentasikan perubahan kontrak (bila ada) di dokumen ini dan samakan dengan salinan di repo FE.
-- [ ] 10. `npm run lint`, `npm test`, `npm run build` hijau.
-- [ ] 11. Commit terakhir: status F06 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 2. `src/modules/filters/filters.dto.ts`: skema `z.object({}).strict()` (tanpa parameter; parameter apa pun → 422).
+- [x] 3. `filters.service.ts`, query paralel (`Promise.all`): rentang `MIN/MAX(orderDate)` → `dataRange`; tahun berbeda dari `orderDate` → `years`; negara berbeda `TRIM(country)` dari `customers`; nama product line; status order berbeda. Semuanya diurutkan.
+- [x] 4. Petakan tiap negara ke benua lewat `continents.ts`; `continents` berasal dari enum benua yang sama.
+- [x] 5. Bungkus loader dengan `createTtlCache` (key tetap karena tanpa parameter).
+- [x] 6. `filters.controller.ts` (dibungkus `asyncHandler`, header `Cache-Control: public, max-age=300`) dan `filters.routes.ts` (hanya `GET`); daftarkan `api.use('/dashboard/filters', filtersRoutes)` di `src/app.ts`.
+- [x] 7. Pastikan DB kosong → 200 dengan array kosong dan `dataRange` berisi `null`.
+- [x] 8. Unit test DTO dan transformasi data; asersi angka emas ke harness F00.
+- [x] 9. Dokumentasikan perubahan kontrak (bila ada) di dokumen ini dan samakan dengan salinan di repo FE.
+- [x] 10. `npm run lint`, `npm test`, `npm run build` hijau.
+- [x] 11. Commit terakhir: status F06 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 
 Kriteria di bawah diturunkan dari kontrak dan angka PRD (dokumen asli hanya memuat kriteria perilaku FE).
 
-- [ ] `dataRange` = 2003-01-06 s.d. 2005-05-31; `years` = [2003, 2004, 2005].
-- [ ] `continents` = 5 benua; `countries` = 27 negara, tiap entri punya benua, dan "Norway" muncul sekali tanpa spasi di belakang.
-- [ ] `productLines` = 7 item; `statuses` = 6 item (Cancelled, Disputed, In Process, On Hold, Resolved, Shipped).
-- [ ] Parameter apa pun pada request → 422.
-- [ ] Respons memiliki header `Cache-Control: public, max-age=300`; request kedua dilayani dari cache.
-- [ ] DB kosong → 200.
+- [x] `dataRange` = 2003-01-06 s.d. 2005-05-31; `years` = [2003, 2004, 2005].
+- [x] `continents` = 5 benua; `countries` = 27 negara, tiap entri punya benua, dan "Norway" muncul sekali tanpa spasi di belakang.
+- [x] `productLines` = 7 item; `statuses` = 6 item (Cancelled, Disputed, In Process, On Hold, Resolved, Shipped).
+- [x] Parameter apa pun pada request → 422.
+- [x] Respons memiliki header `Cache-Control: public, max-age=300`; request kedua dilayani dari cache.
+- [x] DB kosong → 200.
 - [ ] Nilai `country`/`continent` di respons diterima apa adanya oleh DTO F01 dan F04 (tes lintas-modul), begitu pula `productLine` oleh F02 dan `status` oleh F05.
 
 ## Definisi Selesai

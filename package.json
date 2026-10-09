@@ -25,7 +25,8 @@
     "lint": "eslint src test --max-warnings 0",
     "format": "prettier --write src",
     "prepare": "husky || exit 0",
-    "test:golden": "vitest run --dir test/golden"
+    "test:golden": "vitest run --dir test/golden",
+    "test:empty": "vitest run --dir test/empty"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.10.0",
