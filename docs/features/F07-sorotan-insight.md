@@ -8,7 +8,7 @@
 | Endpoint | `GET /api/v1/dashboard/insights` |
 | Padanan | Slide Suggestions, Insight's, dan Recommendation di PPTX |
 | Bergantung pada | BE F00; sebaiknya setelah F01–F05 BE ter-merge karena aturan memakai agregat dari modul-modul itu (lihat asumsi) |
-| Status | 🟨 Sedang dikerjakan |
+| Status | 🟩 Selesai (belum dirilis) |
 
 ## Tujuan
 
