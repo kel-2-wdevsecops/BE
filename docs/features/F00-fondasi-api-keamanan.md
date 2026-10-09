@@ -7,7 +7,7 @@
 | Pasangan FE | Tidak ada pekerjaan FE (lihat `docs/features/F00-fondasi-api-keamanan.md` di repo FE) |
 | Bergantung pada | – (fitur pertama yang dikerjakan di BE) |
 | Dipakai oleh | Semua fitur BE (F01–F07) |
-| Status | ⬜ Belum mulai |
+| Status | 🟨 Sedang dikerjakan |
 
 ## Tujuan
 

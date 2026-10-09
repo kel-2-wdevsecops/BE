@@ -1,0 +1,17 @@
+# Aturan Semgrep custom (PRD §9): SQL hanya lewat Prisma Client atau
+# `$queryRaw` tagged template, yang mengubah setiap nilai menjadi parameter
+# terikat. Varian "Unsafe" menerima string SQL biasa (rawan SQL injection),
+# dan `$executeRaw*` menulis ke DB, padahal API ini hanya-baca.
+# Tes aturan: `semgrep test .semgrep/` (contoh di raw-sql.ts).
+rules:
+  - id: prisma-raw-sql-unsafe
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Jangan pakai $queryRawUnsafe/$executeRawUnsafe/$executeRaw. Pakai
+      prisma.$queryRaw`...` (tagged template) dengan Prisma.sql/Prisma.join
+      untuk potongan dinamis.
+    pattern-either:
+      - pattern: $DB.$queryRawUnsafe
+      - pattern: $DB.$executeRawUnsafe
+      - pattern: $DB.$executeRaw
