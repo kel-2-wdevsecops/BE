@@ -8,7 +8,7 @@
 | Endpoint | `GET /api/v1/dashboard/growth` |
 | Padanan Power BI | Halaman **Sales** |
 | Bergantung pada | BE F00 |
-| Status | 🟨 Sedang dikerjakan |
+| Status | 🟩 Selesai (belum dirilis) |
 
 ## Tujuan
 
