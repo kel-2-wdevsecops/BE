@@ -131,6 +131,52 @@ jobs:
       - name: Skema sesuai dengan migrasi
         run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
+  # Tes angka emas (PRD §9): dump classicmodels (test/fixtures) diimpor ke
+  # MariaDB, lalu endpoint dipanggil lewat HTTP dan angkanya dibandingkan dengan
+  # kriteria penerimaan tiap fitur (test/golden/).
+  golden:
+    name: Golden numbers
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.8@sha256:93fc3fe333b6cdfb061425869c2c3a5bb2851c0c74dbebc2c940f024e7482d76
+        env:
+          MARIADB_ROOT_PASSWORD: ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: mysql://root:ci@127.0.0.1:3306/classicmodels
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependency
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # Dump membuat database `classicmodels` sendiri (CREATE DATABASE + USE).
+      - name: Impor dump
+        run: mysql -h 127.0.0.1 -u root -pci < test/fixtures/classicmodels.sql
+
+      - name: Tes angka emas
+        run: npm run test:golden
+
   # SAST (Semgrep), secret scan (Gitleaks), SCA (Trivy fs) dan SBOM. Semua
   # memblokir kecuali SBOM. Temuan Semgrep yang memang salah alarm ditandai di
   # kodenya dengan `// nosemgrep: <rule-id>` beserta alasannya, temuan
@@ -147,11 +193,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Aturan custom di .semgrep/ (mis. larangan $queryRawUnsafe) ikut
+      # memblokir. Folder itu sendiri dikecualikan dari scan karena berisi
+      # contoh pelanggaran untuk tes aturannya (step berikut).
       - name: SAST (Semgrep)
         run: >-
           docker run --rm -v "$PWD:/src" -w /src
           semgrep/semgrep:1.179.0@sha256:cab19964e6c93019934252a9cd591d9b27df1e5b5d1734b26f4069ae51c295f8
-          semgrep scan --config p/owasp-top-ten --config p/nodejs --error --metrics off
+          semgrep scan --config p/owasp-top-ten --config p/nodejs --config .semgrep/raw-sql.yml
+          --exclude .semgrep --error --metrics off
+
+      - name: Tes aturan Semgrep custom
+        run: >-
+          docker run --rm -v "$PWD:/src" -w /src
+          semgrep/semgrep:1.179.0@sha256:cab19964e6c93019934252a9cd591d9b27df1e5b5d1734b26f4069ae51c295f8
+          semgrep test .semgrep/
 
       # CLI lewat image, bukan gitleaks-action: action itu butuh lisensi
       # berbayar untuk repo milik organisasi. --user menyamakan pemilik file

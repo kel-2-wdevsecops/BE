@@ -85,9 +85,9 @@ Catatan: belum ada endpoint di branch ini, jadi kriteria yang butuh endpoint (42
 - [x] 6. Skema validasi bersama untuk `year`, `month`, `continent`, `country`, `productLine`, `status` (usulan lokasi: `src/lib/querySchemas.ts`; tidak tertulis di dokumen asli). Tambah tes nilai valid dan tidak valid, termasuk `.strict()` menolak parameter tak dikenal.
 - [x] 7. Konvensi cache: verifikasi `createTtlCache(5 * 60_000, 500)` dan `cacheKey` dipakai bersama; tes cache (panggilan kedua dengan filter sama tidak memanggil loader).
 - [x] 8. Helper controller untuk header `Cache-Control: public, max-age=300` pada respons sukses saja (error tidak di-cache).
-- [ ] 9. Aturan Semgrep custom di `.semgrep/` yang menolak `$queryRawUnsafe` dan `$executeRaw*`, dengan file contoh pelanggaran untuk tes aturan. Tambahkan `--config .semgrep/` ke step SAST di `.github/workflows/ci.yml`.
-- [ ] 10. Harness tes angka emas: salin dump ke `test/fixtures/classicmodels.sql`, skrip `npm run test:golden`, dan job CI dengan service MariaDB yang mengimpor dump. Fitur berikutnya menambah asersi angkanya ke harness ini. (Catatan: `npm test` saat ini hanya menjalankan `vitest run --dir src`.)
-- [ ] 11. Tes kontrak: pemeriksa yang menolak kunci terlarang (`phone`, `addressLine*`, `postalCode`, `email`, `extension`, `contactFirstName`, `contactLastName`, `checkNumber`, `creditLimit`) di objek respons; dipakai ulang oleh tiap fitur.
+- [x] 9. Aturan Semgrep custom di `.semgrep/` yang menolak `$queryRawUnsafe` dan `$executeRaw*`, dengan file contoh pelanggaran untuk tes aturan. Tambahkan `--config .semgrep/` ke step SAST di `.github/workflows/ci.yml`.
+- [x] 10. Harness tes angka emas: salin dump ke `test/fixtures/classicmodels.sql`, skrip `npm run test:golden`, dan job CI dengan service MariaDB yang mengimpor dump. Fitur berikutnya menambah asersi angkanya ke harness ini. (Catatan: `npm test` saat ini hanya menjalankan `vitest run --dir src`.)
+- [x] 11. Tes kontrak: pemeriksa yang menolak kunci terlarang (`phone`, `addressLine*`, `postalCode`, `email`, `extension`, `contactFirstName`, `contactLastName`, `checkNumber`, `creditLimit`) di objek respons; dipakai ulang oleh tiap fitur.
 - [ ] 12. Jalankan `npm run lint`, `npm test`, `npm run build`; pastikan CI hijau.
 - [ ] 13. Commit terakhir: status F00 di `docs/PRD.md` §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
@@ -99,7 +99,7 @@ Catatan: belum ada endpoint di branch ini, jadi kriteria yang butuh endpoint (42
 - [x] Dua request berurutan dengan filter sama: request kedua tidak menyentuh DB (dibuktikan dengan unit test cache atau log query dev).
 - [ ] Respons sukses memiliki header `Cache-Control: public, max-age=300`.
 - [ ] Semua endpoint 200 pada DB kosong.
-- [ ] Semgrep custom rule menolak `$queryRawUnsafe` (dibuktikan dengan file contoh di test rule).
+- [x] Semgrep custom rule menolak `$queryRawUnsafe` (dibuktikan dengan file contoh di test rule).
 - [ ] Tidak ada field terlarang di respons mana pun (tes kontrak memeriksa kunci respons).
 
 ## Tes
