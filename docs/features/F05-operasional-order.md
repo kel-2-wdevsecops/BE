@@ -65,22 +65,22 @@ Membuat order bermasalah terlihat sebelum pelanggan mengeluh: order yang tertaha
 **Bagian inti (P1), branch `feat/f05-operasional-order`**
 
 - [ ] 1. Buat branch `feat/f05-operasional-order` dari `main` terbaru (F00 BE sudah ter-merge); ubah status F05 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. `src/modules/operations/operations.dto.ts`: skema strict `year`, `status` memakai skema bersama F00.
-- [ ] 3. `operations.service.ts`, query paralel (`Promise.all`):
+- [x] 2. `src/modules/operations/operations.dto.ts`: skema strict `year`, `status` memakai skema bersama F00.
+- [x] 3. `operations.service.ts`, query paralel (`Promise.all`):
   - `asOf` = `MAX(orderDate)` (bukan tanggal hari ini).
   - `kpi`: `orders`, `shipped`, `needsAttention`, `overdue`, `lateShipments`, `avgShipDays` (2 desimal, `DATEDIFF(shippedDate, orderDate)` untuk order terkirim).
   - `statusBreakdown` (order dan penjualan per status; total = penjualan global).
   - `attentionOrders`: status On Hold, Disputed, In Process, urut tenggat terlama dulu; `comments` dikirim apa adanya (pemotongan dan render teks biasa dilakukan FE).
   - `shippingLeadTime`: 4 bucket (0–2, 3–5, 6–10, >10 hari).
   - `slowestShipments`: 5 order dengan selisih hari terbesar.
-- [ ] 4. Terapkan aturan filter: `year` berbasis `orderDate`; `status` hanya memengaruhi `statusBreakdown` dan `attentionOrders`.
-- [ ] 5. Jangan mem-porting query no. 25 apa adanya (join ke `payments` menggandakan baris).
-- [ ] 6. Bungkus dengan `createTtlCache` dan `cacheKey`; tipe respons eksplisit; `receivables` tidak ada dalam tipe respons di tahap ini.
-- [ ] 7. `operations.controller.ts`, `operations.routes.ts`; daftarkan `api.use('/dashboard/operations', operationsRoutes)` di `src/app.ts`.
-- [ ] 8. Pastikan DB kosong → 200 (`asOf` `null`, rata-rata `null`, array kosong).
-- [ ] 9. Asersi angka emas ke harness; tes kontrak kunci terlarang.
-- [ ] 10. `npm run lint`, `npm test`, `npm run build` hijau.
-- [ ] 11. Commit terakhir: status F05 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 4. Terapkan aturan filter: `year` berbasis `orderDate`; `status` hanya memengaruhi `statusBreakdown` dan `attentionOrders`.
+- [x] 5. Jangan mem-porting query no. 25 apa adanya (join ke `payments` menggandakan baris).
+- [x] 6. Bungkus dengan `createTtlCache` dan `cacheKey`; tipe respons eksplisit; `receivables` tidak ada dalam tipe respons di tahap ini.
+- [x] 7. `operations.controller.ts`, `operations.routes.ts`; daftarkan `api.use('/dashboard/operations', operationsRoutes)` di `src/app.ts`.
+- [x] 8. Pastikan DB kosong → 200 (`asOf` `null`, rata-rata `null`, array kosong).
+- [x] 9. Asersi angka emas ke harness; tes kontrak kunci terlarang.
+- [x] 10. `npm run lint`, `npm test`, `npm run build` hijau.
+- [x] 11. Commit terakhir: status F05 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 **Bagian piutang (P2), branch `feat/f05-piutang`, hanya bila Q4 disetujui**
 
@@ -91,11 +91,11 @@ Membuat order bermasalah terlihat sebelum pelanggan mengeluh: order yang tertaha
 
 ## Kriteria Penerimaan
 
-- [ ] Status: Shipped 303, Cancelled 6, In Process 6, On Hold 4, Resolved 4, Disputed 3.
-- [ ] Penjualan per status: Shipped 8.865.094,64; Cancelled 238.854,18; On Hold 169.575,61; In Process 135.271,52; Resolved 134.235,88; Disputed 61.158,78 (total 9.604.190,61).
-- [ ] 13 order perlu perhatian dengan nilai 366.005,91; 4 order On Hold seluruhnya beralasan credit limit terlampaui.
-- [ ] Rata-rata hari kirim 3,76; 1 pengiriman terlambat (order 10165, 65 hari); 4 order lewat tenggat.
-- [ ] Bucket lama kirim: 99 / 163 / 49 / 1 (total 312 order terkirim).
+- [x] Status: Shipped 303, Cancelled 6, In Process 6, On Hold 4, Resolved 4, Disputed 3.
+- [x] Penjualan per status: Shipped 8.865.094,64; Cancelled 238.854,18; On Hold 169.575,61; In Process 135.271,52; Resolved 134.235,88; Disputed 61.158,78 (total 9.604.190,61).
+- [x] 13 order perlu perhatian dengan nilai 366.005,91; 4 order On Hold seluruhnya beralasan credit limit terlampaui.
+- [x] Rata-rata hari kirim 3,76; 1 pengiriman terlambat (order 10165, 65 hari); 4 order lewat tenggat.
+- [x] Bucket lama kirim: 99 / 163 / 49 / 1 (total 312 order terkirim).
 - [ ] (P2) Tagihan 9.365.336,43; dibayar 8.853.839,23; selisih 511.497,20; 3 customer melewati credit limit.
 
 Kriteria tampilan (catatan `<script>` tampil sebagai teks, keterangan keterbatasan piutang) ada di dokumen FE.
