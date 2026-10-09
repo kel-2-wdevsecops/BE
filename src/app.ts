@@ -13,6 +13,7 @@ import { apiLimiter, healthLimiter } from './middleware/rateLimit.middleware';
 // Satu router per modul di src/modules/<nama>/<nama>.routes.ts (lihat README).
 import filtersRoutes from './modules/filters/filters.routes';
 import overviewRoutes from './modules/overview/overview.routes';
+import productsRoutes from './modules/products/products.routes';
 
 // ── Error middleware ──────────────────────────────────────────────────────────
 import { errorMiddleware } from './middleware/error.middleware';
@@ -70,6 +71,7 @@ api.use(apiLimiter);
 // Dashboard publik, hanya-baca (GET), tanpa login. Satu endpoint per halaman.
 api.use('/dashboard/filters', filtersRoutes);
 api.use('/dashboard/overview', overviewRoutes);
+api.use('/dashboard/products', productsRoutes);
 
 app.use('/api/v1', api);
 

@@ -8,6 +8,8 @@ const ENDPOINTS = [
   '/dashboard/filters',
   '/dashboard/overview',
   '/dashboard/overview?year=2004&month=1&continent=Europe&country=Norway',
+  '/dashboard/products',
+  '/dashboard/products?productLine=Ships&productLine=Trains&year=2004&month=1',
 ];
 
 const get = useApi();

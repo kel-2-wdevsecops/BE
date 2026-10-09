@@ -52,33 +52,33 @@ Power BI punya slicer tahun/bulan di halaman ini; README BE baru menyebut produc
 ## Langkah Pengerjaan
 
 - [ ] 1. Buat branch `feat/f02-produk` dari `main` terbaru (F00 BE sudah ter-merge); ubah status F02 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. `src/modules/products/products.dto.ts`: skema strict `productLine` (string atau array), `year`, `month` memakai skema bersama F00.
-- [ ] 3. Definisikan `LOW_STOCK_THRESHOLD` (default 100) sekali di berkas konstanta bersama (mis. `src/config/thresholds.ts`) agar bisa di-import F07.
-- [ ] 4. `products.service.ts`, query paralel dengan WHERE dari `sqlFilters.ts`:
+- [x] 2. `src/modules/products/products.dto.ts`: skema strict `productLine` (string atau array), `year`, `month` memakai skema bersama F00.
+- [x] 3. Definisikan `LOW_STOCK_THRESHOLD` (default 100) sekali di berkas konstanta bersama (mis. `src/config/thresholds.ts`) agar bisa di-import F07.
+- [x] 4. `products.service.ts`, query paralel dengan WHERE dari `sqlFilters.ts`:
   - `kpi` (penjualan, profit, margin, order berbeda, kuantitas).
   - `salesByProductLine` (penjualan + profit).
   - `ordersByYear`, `ordersByMonth` (12 baris, bulan kosong = 0, urutan kalender).
   - `topVendors` (5 teratas berdasarkan penjualan).
   - `products`: semua produk pada product line terpilih dengan LEFT JOIN agar yang tak terjual tetap ada (penjualan 0); hitung `lowStock`.
-- [ ] 5. Pastikan `productLine` tak dikenal (lolos regex) → 200 dengan nilai nol, bukan error.
-- [ ] 6. Bungkus dengan `createTtlCache` dan `cacheKey` (array `productLine` diurutkan dan di-dedup); tipe respons eksplisit.
-- [ ] 7. `products.controller.ts`, `products.routes.ts`; daftarkan `api.use('/dashboard/products', productsRoutes)` di `src/app.ts`.
-- [ ] 8. Pastikan DB kosong → 200.
-- [ ] 9. Unit test DTO (termasuk array, >7 item, karakter terlarang); asersi angka emas ke harness; tes kontrak kunci terlarang.
-- [ ] 10. `npm run lint`, `npm test`, `npm run build` hijau.
-- [ ] 11. Commit terakhir: status F02 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 5. Pastikan `productLine` tak dikenal (lolos regex) → 200 dengan nilai nol, bukan error.
+- [x] 6. Bungkus dengan `createTtlCache` dan `cacheKey` (array `productLine` diurutkan dan di-dedup); tipe respons eksplisit.
+- [x] 7. `products.controller.ts`, `products.routes.ts`; daftarkan `api.use('/dashboard/products', productsRoutes)` di `src/app.ts`.
+- [x] 8. Pastikan DB kosong → 200.
+- [x] 9. Unit test DTO (termasuk array, >7 item, karakter terlarang); asersi angka emas ke harness; tes kontrak kunci terlarang.
+- [x] 10. `npm run lint`, `npm test`, `npm run build` hijau.
+- [x] 11. Commit terakhir: status F02 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 
-- [ ] Tanpa filter, penjualan per product line: Classic Cars 3.853.922,49; Vintage Cars 1.797.559,63; Motorcycles 1.121.426,12; Trucks and Buses 1.024.113,57; Planes 954.637,54; Ships 663.998,34; Trains 188.532,92.
-- [ ] Top 5 vendor: Classic Metal Creations 934.554,42; Unimax Art Galleries 884.167,33; Gearbox Collectibles 828.013,76; Second Gear Diecast 803.892,06; Exoto Designs 793.392,31.
-- [ ] Order per tahun: 2003 = 111, 2004 = 151, 2005 = 64.
-- [ ] Order per bulan (semua tahun): Jan 25, Feb 26, Mar 27, Apr 29, Mei 29, Jun 19, Jul 18, Agu 17, Sep 20, Okt 31, Nov 63, Des 22.
-- [ ] Produk teratas: 1992 Ferrari 360 Spider red, penjualan 276.839,98, 53 order.
-- [ ] `products` memuat 110 produk; 1985 Toyota Supra tampil dengan penjualan 0.
-- [ ] 1968 Ford Mustang (top 5 penjualan, stok 68) `lowStock: true`.
-- [ ] `productLine=Classic Cars&productLine=Vintage Cars`: penjualan = 5.651.482,12.
-- [ ] `productLine=Unknown` → 200 dengan nilai nol (lolos regex, tidak ada data).
+- [x] Tanpa filter, penjualan per product line: Classic Cars 3.853.922,49; Vintage Cars 1.797.559,63; Motorcycles 1.121.426,12; Trucks and Buses 1.024.113,57; Planes 954.637,54; Ships 663.998,34; Trains 188.532,92.
+- [x] Top 5 vendor: Classic Metal Creations 934.554,42; Unimax Art Galleries 884.167,33; Gearbox Collectibles 828.013,76; Second Gear Diecast 803.892,06; Exoto Designs 793.392,31.
+- [x] Order per tahun: 2003 = 111, 2004 = 151, 2005 = 64.
+- [x] Order per bulan (semua tahun): Jan 25, Feb 26, Mar 27, Apr 29, Mei 29, Jun 19, Jul 18, Agu 17, Sep 20, Okt 31, Nov 63, Des 22.
+- [x] Produk teratas: 1992 Ferrari 360 Spider red, penjualan 276.839,98, 53 order.
+- [x] `products` memuat 110 produk; 1985 Toyota Supra tampil dengan penjualan 0.
+- [x] 1968 Ford Mustang (top 5 penjualan, stok 68) `lowStock: true`.
+- [x] `productLine=Classic Cars&productLine=Vintage Cars`: penjualan = 5.651.482,12.
+- [x] `productLine=Unknown` → 200 dengan nilai nol (lolos regex, tidak ada data).
 
 Kriteria tampilan (tabel bisa diurutkan, pencarian, penanda stok rendah, klik bar) ada di dokumen FE.
 
