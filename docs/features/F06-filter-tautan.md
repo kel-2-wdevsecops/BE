@@ -7,7 +7,7 @@
 | Pasangan FE | `feat/f06-filter-tautan` di repo FE (komponen filter, parsing URL, tautan berbagi) |
 | Bergantung pada | BE F00 |
 | Dipakai oleh | FE F06, lalu F01–F05 (lewat FE) |
-| Status | ⬜ Belum mulai |
+| Status | 🟨 Sedang dikerjakan |
 
 ## Tujuan
 
