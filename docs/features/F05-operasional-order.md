@@ -8,7 +8,7 @@
 | Endpoint | `GET /api/v1/dashboard/operations` |
 | Padanan | Insight PPTX (slide 16, 17) dan query `Axon SQL.sql` no. 15, 17, 25. Tidak ada di Power BI |
 | Bergantung pada | BE F00 |
-| Status | ⬜ Belum mulai (piutang: ⬜, menunggu keputusan Q4) |
+| Status | 🟨 Sedang dikerjakan (piutang: ⬜, menunggu keputusan Q4) |
 
 ## Tujuan
 
