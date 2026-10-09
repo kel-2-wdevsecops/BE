@@ -7,7 +7,7 @@
 | Pasangan FE | Tidak ada pekerjaan FE (lihat `docs/features/F00-fondasi-api-keamanan.md` di repo FE) |
 | Bergantung pada | – (fitur pertama yang dikerjakan di BE) |
 | Dipakai oleh | Semua fitur BE (F01–F07) |
-| Status | 🟨 Sedang dikerjakan |
+| Status | 🟩 Selesai (belum dirilis) |
 
 ## Tujuan
 
@@ -88,8 +88,8 @@ Catatan: belum ada endpoint di branch ini, jadi kriteria yang butuh endpoint (42
 - [x] 9. Aturan Semgrep custom di `.semgrep/` yang menolak `$queryRawUnsafe` dan `$executeRaw*`, dengan file contoh pelanggaran untuk tes aturan. Tambahkan `--config .semgrep/` ke step SAST di `.github/workflows/ci.yml`.
 - [x] 10. Harness tes angka emas: salin dump ke `test/fixtures/classicmodels.sql`, skrip `npm run test:golden`, dan job CI dengan service MariaDB yang mengimpor dump. Fitur berikutnya menambah asersi angkanya ke harness ini. (Catatan: `npm test` saat ini hanya menjalankan `vitest run --dir src`.)
 - [x] 11. Tes kontrak: pemeriksa yang menolak kunci terlarang (`phone`, `addressLine*`, `postalCode`, `email`, `extension`, `contactFirstName`, `contactLastName`, `checkNumber`, `creditLimit`) di objek respons; dipakai ulang oleh tiap fitur.
-- [ ] 12. Jalankan `npm run lint`, `npm test`, `npm run build`; pastikan CI hijau.
-- [ ] 13. Commit terakhir: status F00 di `docs/PRD.md` §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 12. Jalankan `npm run lint`, `npm test`, `npm run build`; pastikan CI hijau.
+- [x] 13. Commit terakhir: status F00 di `docs/PRD.md` §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 

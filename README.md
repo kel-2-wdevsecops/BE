@@ -34,6 +34,7 @@ Stack: Node.js 24, TypeScript, Express 5, Prisma 7 (adapter `mariadb`, kompatibe
 | `npm run dev` | Server dev dengan reload (tsx watch) |
 | `npm run build` / `npm start` | Kompilasi ke `dist/` / jalankan hasilnya |
 | `npm test` | Unit test (Vitest, file `*.test.ts` di samping kodenya) |
+| `npm run test:golden` | Tes angka emas: endpoint dipanggil lewat HTTP terhadap DB berisi dump (`test/golden/`) |
 | `npm run lint` | ESLint, warning pun gagal (sama dengan CI) |
 | `npm run db:generate` | Generate Prisma client ke `src/generated/prisma` (tidak di-commit) |
 | `npm run db:pull` | Introspeksi ulang DB ke `prisma/schema.prisma` |
@@ -50,8 +51,15 @@ src/
   server.ts              bootstrap + graceful shutdown
   config/                env (divalidasi saat start) & Prisma client
   middleware/            error handler (Zod -> 422), rate limit
-  modules/               satu folder per modul (masih kosong)
+  lib/                   fungsi murni bersama (+ test): money, continents, filters (cacheKey),
+                         sqlFilters, querySchemas (skema Zod), cache
+  modules/               satu folder per endpoint dashboard
   utils/                 ApiResponse, asyncHandler, clientIp, ttlCache
+test/
+  fixtures/              dump classicmodels untuk tes angka emas
+  golden/                tes angka emas per fitur (butuh DB berisi dump)
+  helpers/               app di port acak (`useApi`), pemeriksa kunci terlarang
+.semgrep/                aturan Semgrep custom (larangan $queryRawUnsafe) + contohnya
 ```
 
 ## Menambah modul
@@ -59,14 +67,14 @@ src/
 Satu folder per modul, mis. `src/modules/dashboard/`:
 
 - **`<nama>.routes.ts`**: `Router` Express, hanya `GET`. Daftarkan di `src/app.ts`: `api.use('/<nama>', <nama>Routes)`.
-- **`<nama>.controller.ts`**: tipis. Parse query string dengan DTO, panggil service, kirim `ApiResponse.success`. Setiap handler dibungkus `asyncHandler`, supaya error (termasuk `ZodError` -> 422) sampai ke error middleware.
-- **`<nama>.dto.ts`**: skema Zod untuk query string (filter). Nilai yang tidak valid ditolak, bukan ditebak.
-- **`<nama>.service.ts`**: query Prisma. Agregat lintas tabel boleh `prisma.$queryRaw` **tagged template** (nilai filter jadi parameter terikat); jangan pernah `$queryRawUnsafe` atau string SQL yang digabung manual. Potongan kondisi dinamis disusun dengan `Prisma.sql` dan `Prisma.join`.
+- **`<nama>.controller.ts`**: tipis. Parse query string dengan DTO, panggil service, kirim `ApiResponse.cached` (menambah `Cache-Control: public, max-age=300`). Setiap handler dibungkus `asyncHandler`, supaya error (termasuk `ZodError` -> 422) sampai ke error middleware.
+- **`<nama>.dto.ts`**: `z.object({...}).strict()` dari skema bersama di `lib/querySchemas.ts`. Nilai yang tidak valid dan parameter tak dikenal ditolak 422, bukan ditebak.
+- **`<nama>.service.ts`**: query Prisma. Agregat lintas tabel boleh `prisma.$queryRaw` **tagged template** (nilai filter jadi parameter terikat); jangan pernah `$queryRawUnsafe` atau string SQL yang digabung manual. Potongan kondisi dinamis disusun dengan `lib/sqlFilters.ts`. Loader dibungkus `cached()` dari `lib/cache.ts`. Semgrep custom di CI menolak `$queryRawUnsafe`/`$executeRaw*`.
 - Fungsi murni (perhitungan, pemetaan) di `lib/` dengan file `*.test.ts` di sampingnya.
 
 Catatan data:
-- `COUNT` dari `$queryRaw` datang sebagai `bigint` dan `SUM` sebagai `Decimal`: ubah ke `number` sebelum dikirim sebagai JSON.
-- Data dump tidak berubah, jadi hasil agregat boleh di-cache dengan `utils/ttlCache.ts`, dan respons boleh diberi `Cache-Control: public, max-age=300`.
+- `COUNT` dari `$queryRaw` datang sebagai `bigint` dan `SUM` sebagai `Decimal`: ubah dengan `toNumber()` dari `lib/money.ts`.
+- Angka yang bisa dicocokkan dengan PRD ditambahkan sebagai asersi di `test/golden/<fitur>.test.ts`, beserta pemeriksaan `forbiddenKeys` (minimasi data).
 - Ada nilai negara dengan spasi di belakang (`"Norway  "`); trim sebelum dipakai sebagai label.
 
 ## Target dashboard
