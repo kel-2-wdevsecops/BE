@@ -8,7 +8,7 @@
 | Endpoint | `GET /api/v1/dashboard/products` |
 | Padanan Power BI | Halaman **Products** |
 | Bergantung pada | BE F00 |
-| Status | ⬜ Belum mulai |
+| Status | 🟨 Sedang dikerjakan |
 
 ## Tujuan
 
