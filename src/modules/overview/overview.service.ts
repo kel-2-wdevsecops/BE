@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database';
 import { cached } from '../../lib/cache';
 import { continentOf, type Continent } from '../../lib/continents';
+import { isPartial } from '../../lib/growth';
 import { pct, round2, toNumber, type RawNumber } from '../../lib/money';
 import { sqlConditions, where } from '../../lib/sqlFilters';
 import type { OverviewFilter } from './overview.dto';
@@ -112,7 +113,7 @@ async function load(filter: OverviewFilter): Promise<OverviewResponse> {
         sales:     round2(toNumber(r.sales)),
         profit:    round2(toNumber(r.profit)),
         // Tahun yang belum lengkap di data (2005 hanya sampai Mei).
-        isPartial: range?.lastOrder != null && `${y}-12-31` > range.lastOrder,
+        isPartial: isPartial({ year: y, index: 1 }, 'year', range?.lastOrder ?? null),
       };
     }),
   };

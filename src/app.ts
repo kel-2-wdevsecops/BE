@@ -14,6 +14,7 @@ import { apiLimiter, healthLimiter } from './middleware/rateLimit.middleware';
 import filtersRoutes from './modules/filters/filters.routes';
 import overviewRoutes from './modules/overview/overview.routes';
 import productsRoutes from './modules/products/products.routes';
+import growthRoutes from './modules/growth/growth.routes';
 
 // ── Error middleware ──────────────────────────────────────────────────────────
 import { errorMiddleware } from './middleware/error.middleware';
@@ -72,6 +73,7 @@ api.use(apiLimiter);
 api.use('/dashboard/filters', filtersRoutes);
 api.use('/dashboard/overview', overviewRoutes);
 api.use('/dashboard/products', productsRoutes);
+api.use('/dashboard/growth', growthRoutes);
 
 app.use('/api/v1', api);
 
