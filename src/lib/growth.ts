@@ -73,3 +73,17 @@ export function growthSeries(monthly: MonthlySales[], grain: Grain, dataTo: stri
   }
   return rows;
 }
+
+export interface YearToDate { year: number; throughMonth: number; sales: number; previous: number; growthPct: number | null }
+
+/** Januari s.d. bulan terakhir data pada tahun terakhir, vs rentang yang sama setahun sebelumnya. */
+export function yearToDate(monthly: MonthlySales[], dataTo: string | null): YearToDate | null {
+  if (!dataTo) return null;
+  const year = Number(dataTo.slice(0, 4));
+  const throughMonth = Number(dataTo.slice(5, 7));
+  const total = (y: number) =>
+    monthly.filter((m) => m.year === y && m.month <= throughMonth).reduce((n, m) => n + m.sales, 0);
+  const sales = total(year);
+  const previous = total(year - 1);
+  return { year, throughMonth, sales: round2(sales), previous: round2(previous), growthPct: growthPct(sales, previous) };
+}
