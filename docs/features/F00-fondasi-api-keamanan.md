@@ -98,7 +98,7 @@ Catatan: belum ada endpoint di branch ini, jadi kriteria yang butuh endpoint (42
 - [x] `?productLine=Classic%20Cars&productLine=Ships` diterima sebagai array 2 item.
 - [x] Dua request berurutan dengan filter sama: request kedua tidak menyentuh DB (dibuktikan dengan unit test cache atau log query dev).
 - [ ] Respons sukses memiliki header `Cache-Control: public, max-age=300`.
-- [ ] Semua endpoint 200 pada DB kosong.
+- [x] Semua endpoint 200 pada DB kosong.
 - [x] Semgrep custom rule menolak `$queryRawUnsafe` (dibuktikan dengan file contoh di test rule).
 - [ ] Tidak ada field terlarang di respons mana pun (tes kontrak memeriksa kunci respons).
 

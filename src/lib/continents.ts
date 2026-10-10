@@ -52,3 +52,14 @@ export function continentOf(country: string): Continent | null {
 export function countriesIn(continent: Continent): Country[] {
   return COUNTRIES.filter((country) => COUNTRY_CONTINENT[country] === continent);
 }
+
+/** Pilihan filter negara: nama dari DB di-trim, di-dedup, diurutkan, beserta benuanya. */
+export function countryOptions(names: string[]): { country: string; continent: Continent }[] {
+  return [...new Set(names.map((n) => n.trim()))]
+    .sort()
+    .flatMap((country) => {
+      const continent = continentOf(country);
+      // Negara di luar peta tidak ditawarkan: DTO akan menolaknya (422).
+      return continent ? [{ country, continent }] : [];
+    });
+}
