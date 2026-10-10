@@ -17,6 +17,7 @@ import productsRoutes from './modules/products/products.routes';
 import growthRoutes from './modules/growth/growth.routes';
 import customersRoutes from './modules/customers/customers.routes';
 import operationsRoutes from './modules/operations/operations.routes';
+import insightsRoutes from './modules/insights/insights.routes';
 
 // ── Error middleware ──────────────────────────────────────────────────────────
 import { errorMiddleware } from './middleware/error.middleware';
@@ -78,6 +79,7 @@ api.use('/dashboard/products', productsRoutes);
 api.use('/dashboard/growth', growthRoutes);
 api.use('/dashboard/customers', customersRoutes);
 api.use('/dashboard/operations', operationsRoutes);
+api.use('/dashboard/insights', insightsRoutes);
 
 app.use('/api/v1', api);
 

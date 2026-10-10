@@ -8,7 +8,7 @@
 | Endpoint | `GET /api/v1/dashboard/insights` |
 | Padanan | Slide Suggestions, Insight's, dan Recommendation di PPTX |
 | Bergantung pada | BE F00; sebaiknya setelah F01–F05 BE ter-merge karena aturan memakai agregat dari modul-modul itu (lihat asumsi) |
-| Status | ⬜ Belum mulai |
+| Status | 🟩 Selesai (belum dirilis) |
 
 ## Tujuan
 
@@ -62,25 +62,25 @@ Setiap aturan adalah fungsi murni di `src/lib/insights.ts` (BE) yang menerima ag
 Asumsi penempatan: sumber agregat tiap aturan memakai ulang loader berdaftar cache dari service F01–F05 bila ada (mis. penjualan per product line dari F02, pelanggan dan prospek dari F04, On Hold dari F05, YTD dari F03), agar angka insight pasti sama dengan halaman detailnya. Karena itu branch ini sebaiknya dibuat setelah F01–F05 BE ter-merge.
 
 - [ ] 1. Buat branch `feat/f07-sorotan-insight` dari `main` terbaru; ubah status F07 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. Konstanta ambang (mis. porsi konsentrasi 10 %, rasio musiman 1,5, `LOW_STOCK_THRESHOLD` dari F02) di satu tempat yang bisa diubah.
-- [ ] 3. `src/lib/insights.ts`: satu fungsi murni per aturan (9 aturan di tabel), tiap fungsi menerima agregat dan mengembalikan satu insight atau `null`; template teks `id-ID`, angka dari data; `link` dibatasi whitelist route internal.
-- [ ] 4. `src/lib/insights.test.ts`: tiap aturan diuji untuk kondisi terpenuhi, tidak terpenuhi, dan input kosong.
-- [ ] 5. `src/modules/insights/insights.dto.ts`: skema `z.object({}).strict()` (tanpa parameter).
-- [ ] 6. `insights.service.ts`: kumpulkan agregat secara paralel, jalankan semua aturan, buang `null`, urutkan `warning` → `positive` → `info`.
-- [ ] 7. Bungkus dengan `createTtlCache`; tipe respons eksplisit (`id`, `severity`, `title`, `detail`, `recommendation`, `metric`, `link`).
-- [ ] 8. `insights.controller.ts`, `insights.routes.ts`; daftarkan `api.use('/dashboard/insights', insightsRoutes)` di `src/app.ts`.
-- [ ] 9. Pastikan DB kosong → 200 dengan array kosong (bukan error).
-- [ ] 10. Asersi angka emas (9 insight) ke harness; tes bahwa mengubah `LOW_STOCK_THRESHOLD` menjadi 50 menghilangkan `low-stock-top-sellers`.
-- [ ] 11. `npm run lint`, `npm test`, `npm run build` hijau.
+- [x] 2. Konstanta ambang (mis. porsi konsentrasi 10 %, rasio musiman 1,5, `LOW_STOCK_THRESHOLD` dari F02) di satu tempat yang bisa diubah.
+- [x] 3. `src/lib/insights.ts`: satu fungsi murni per aturan (9 aturan di tabel), tiap fungsi menerima agregat dan mengembalikan satu insight atau `null`; template teks `id-ID`, angka dari data; `link` dibatasi whitelist route internal.
+- [x] 4. `src/lib/insights.test.ts`: tiap aturan diuji untuk kondisi terpenuhi, tidak terpenuhi, dan input kosong.
+- [x] 5. `src/modules/insights/insights.dto.ts`: skema `z.object({}).strict()` (tanpa parameter).
+- [x] 6. `insights.service.ts`: kumpulkan agregat secara paralel, jalankan semua aturan, buang `null`, urutkan `warning` → `positive` → `info`.
+- [x] 7. Bungkus dengan `createTtlCache`; tipe respons eksplisit (`id`, `severity`, `title`, `detail`, `recommendation`, `metric`, `link`).
+- [x] 8. `insights.controller.ts`, `insights.routes.ts`; daftarkan `api.use('/dashboard/insights', insightsRoutes)` di `src/app.ts`.
+- [x] 9. Pastikan DB kosong → 200 dengan array kosong (bukan error).
+- [x] 10. Asersi angka emas (9 insight) ke harness; tes bahwa mengubah `LOW_STOCK_THRESHOLD` menjadi 50 menghilangkan `low-stock-top-sellers`.
+- [x] 11. `npm run lint`, `npm test`, `npm run build` hijau.
 - [ ] 12. Commit terakhir: status F07 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 
-- [ ] Dengan data dump, respons berisi 9 insight dengan angka sesuai kolom "Contoh hasil".
-- [ ] Pada DB kosong, respons adalah array kosong (bukan error).
-- [ ] Unit test setiap aturan: kondisi terpenuhi, tidak terpenuhi, dan input kosong.
-- [ ] Mengubah `LOW_STOCK_THRESHOLD` menjadi 50 menghilangkan insight `low-stock-top-sellers`.
-- [ ] Semua `link` adalah salah satu dari `/`, `/produk`, `/pertumbuhan`, `/pelanggan`, `/operasional`.
+- [x] Dengan data dump, respons berisi 9 insight dengan angka sesuai kolom "Contoh hasil".
+- [x] Pada DB kosong, respons adalah array kosong (bukan error).
+- [x] Unit test setiap aturan: kondisi terpenuhi, tidak terpenuhi, dan input kosong.
+- [x] Mengubah `LOW_STOCK_THRESHOLD` menjadi 50 menghilangkan insight `low-stock-top-sellers`.
+- [x] Semua `link` adalah salah satu dari `/`, `/produk`, `/pertumbuhan`, `/pelanggan`, `/operasional`.
 
 Kriteria tampilan (panel "Sorotan", pesan "Belum ada insight", ikon severity) ada di dokumen FE.
 

@@ -131,7 +131,7 @@ Status per 6 Oktober 2026. Baseline repo BE: boilerplate v1.0.1 (skema Prisma, c
 | F03 | Analisis pertumbuhan | P0 | `GET /dashboard/growth` | `feat/f03-pertumbuhan` | F00 | 🟩 | – | [F03](features/F03-pertumbuhan.md) |
 | F04 | Pelanggan dan tim sales | P1 | `GET /dashboard/customers` | `feat/f04-pelanggan-tim-sales` | F00 | 🟩 | – | [F04](features/F04-pelanggan-tim-sales.md) |
 | F05 | Operasional order | P1 (piutang P2) | `GET /dashboard/operations` | `feat/f05-operasional-order` (piutang: `feat/f05-piutang`) | F00 | 🟩 | – | [F05](features/F05-operasional-order.md) |
-| F07 | Sorotan insight dan rekomendasi | P1 | `GET /dashboard/insights` | `feat/f07-sorotan-insight` | F00; sebaiknya setelah F01–F05 | ⬜ | – | [F07](features/F07-sorotan-insight.md) |
+| F07 | Sorotan insight dan rekomendasi | P1 | `GET /dashboard/insights` | `feat/f07-sorotan-insight` | F00; sebaiknya setelah F01–F05 | 🟩 | – | [F07](features/F07-sorotan-insight.md) |
 
 Semua endpoint berada di bawah `/api/v1`, hanya `GET`, dan memakai amplop `{ success, message, data, errors? }` yang sudah ada.
 
