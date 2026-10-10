@@ -8,7 +8,7 @@
 | Endpoint | `GET /api/v1/dashboard/growth` |
 | Padanan Power BI | Halaman **Sales** |
 | Bergantung pada | BE F00 |
-| Status | ⬜ Belum mulai |
+| Status | 🟩 Selesai (belum dirilis) |
 
 ## Tujuan
 
@@ -47,28 +47,28 @@ Membantu manajemen menilai apakah penjualan tumbuh dengan membandingkan setiap p
 ## Langkah Pengerjaan
 
 - [ ] 1. Buat branch `feat/f03-pertumbuhan` dari `main` terbaru (F00 BE sudah ter-merge); ubah status F03 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. `src/lib/growth.ts`: `growthPct()` (2 desimal, `null` bila pembanding tidak ada atau 0), `previousPeriod()` (bulan/kuartal/tahun kalender sebelumnya, termasuk pergantian tahun), `isPartial()` (periode berakhir setelah `dataRange.to`).
-- [ ] 3. `src/lib/growth.test.ts`: pergantian tahun (Januari vs Desember), pembanding 0, periode tanpa pembanding, periode parsial.
-- [ ] 4. `src/modules/growth/growth.dto.ts`: skema strict dengan `year` saja.
-- [ ] 5. `growth.service.ts`: satu query penjualan per bulan atas seluruh data (bulan tanpa order diisi 0 di kode), query profit dan penjualan per tahun untuk `salesProfitByYear`, `dataRange` dari `MIN/MAX(orderDate)`.
-- [ ] 6. Turunkan `monthly`, `quarterly`, `yearly` dari deret bulanan di kode; hitung `ytd` (Januari s.d. bulan order terakhir vs rentang yang sama tahun sebelumnya, tidak terpengaruh filter).
-- [ ] 7. Terapkan filter `year` hanya pada baris yang ditampilkan (deret tetap dihitung dari seluruh data).
-- [ ] 8. Bungkus dengan `createTtlCache` dan `cacheKey`; tipe respons eksplisit.
-- [ ] 9. `growth.controller.ts`, `growth.routes.ts`; daftarkan `api.use('/dashboard/growth', growthRoutes)` di `src/app.ts`.
-- [ ] 10. Pastikan DB kosong → 200 (array kosong, `ytd` aman, tanpa `NaN`/`Infinity`).
-- [ ] 11. Asersi angka emas ke harness; tes kontrak kunci terlarang.
-- [ ] 12. `npm run lint`, `npm test`, `npm run build` hijau.
-- [ ] 13. Commit terakhir: status F03 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 2. `src/lib/growth.ts`: `growthPct()` (2 desimal, `null` bila pembanding tidak ada atau 0), `previousPeriod()` (bulan/kuartal/tahun kalender sebelumnya, termasuk pergantian tahun), `isPartial()` (periode berakhir setelah `dataRange.to`).
+- [x] 3. `src/lib/growth.test.ts`: pergantian tahun (Januari vs Desember), pembanding 0, periode tanpa pembanding, periode parsial.
+- [x] 4. `src/modules/growth/growth.dto.ts`: skema strict dengan `year` saja.
+- [x] 5. `growth.service.ts`: satu query penjualan per bulan atas seluruh data (bulan tanpa order diisi 0 di kode), query profit dan penjualan per tahun untuk `salesProfitByYear`, `dataRange` dari `MIN/MAX(orderDate)`.
+- [x] 6. Turunkan `monthly`, `quarterly`, `yearly` dari deret bulanan di kode; hitung `ytd` (Januari s.d. bulan order terakhir vs rentang yang sama tahun sebelumnya, tidak terpengaruh filter).
+- [x] 7. Terapkan filter `year` hanya pada baris yang ditampilkan (deret tetap dihitung dari seluruh data).
+- [x] 8. Bungkus dengan `createTtlCache` dan `cacheKey`; tipe respons eksplisit.
+- [x] 9. `growth.controller.ts`, `growth.routes.ts`; daftarkan `api.use('/dashboard/growth', growthRoutes)` di `src/app.ts`.
+- [x] 10. Pastikan DB kosong → 200 (array kosong, `ytd` aman, tanpa `NaN`/`Infinity`).
+- [x] 11. Asersi angka emas ke harness; tes kontrak kunci terlarang.
+- [x] 12. `npm run lint`, `npm test`, `npm run build` hijau.
+- [x] 13. Commit terakhir: status F03 di PRD §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 
-- [ ] YoY: 2003 growth `null`; 2004 +36,13 %; 2005 −60,78 % dengan `isPartial: true`.
-- [ ] QoQ: Q4 2003 +188,39 %; Q1 2004 −55,06 %.
-- [ ] MoM: Januari 2003 `null`; Desember 2003 −71,99 %; Januari 2004 +5,66 %.
-- [ ] YTD: 1.770.936,71 vs 1.235.480,38 = +43,34 %.
-- [ ] `year=2004` mengembalikan 1 baris YoY, 4 baris QoQ, 12 baris MoM; Januari 2004 tetap punya pembanding.
-- [ ] Tidak ada `Infinity` atau `NaN` di respons.
-- [ ] Unit test `growth.ts` mencakup pergantian tahun, pembanding 0, dan periode parsial.
+- [x] YoY: 2003 growth `null`; 2004 +36,13 %; 2005 −60,78 % dengan `isPartial: true`.
+- [x] QoQ: Q4 2003 +188,39 %; Q1 2004 −55,06 %.
+- [x] MoM: Januari 2003 `null`; Desember 2003 −71,99 %; Januari 2004 +5,66 %.
+- [x] YTD: 1.770.936,71 vs 1.235.480,38 = +43,34 %.
+- [x] `year=2004` mengembalikan 1 baris YoY, 4 baris QoQ, 12 baris MoM; Januari 2004 tetap punya pembanding.
+- [x] Tidak ada `Infinity` atau `NaN` di respons.
+- [x] Unit test `growth.ts` mencakup pergantian tahun, pembanding 0, dan periode parsial.
 
 Kriteria tampilan (label "parsial", ikon naik/turun, "—" untuk `null`) ada di dokumen FE.
 

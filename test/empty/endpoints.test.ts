@@ -10,6 +10,8 @@ const ENDPOINTS = [
   '/dashboard/overview?year=2004&month=1&continent=Europe&country=Norway',
   '/dashboard/products',
   '/dashboard/products?productLine=Ships&productLine=Trains&year=2004&month=1',
+  '/dashboard/growth',
+  '/dashboard/growth?year=2004',
 ];
 
 const get = useApi();
