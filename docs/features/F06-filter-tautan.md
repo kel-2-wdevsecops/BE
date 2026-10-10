@@ -71,7 +71,7 @@ Kriteria di bawah diturunkan dari kontrak dan angka PRD (dokumen asli hanya memu
 - [x] Parameter apa pun pada request → 422.
 - [x] Respons memiliki header `Cache-Control: public, max-age=300`; request kedua dilayani dari cache.
 - [x] DB kosong → 200.
-- [ ] Nilai `country`/`continent` di respons diterima apa adanya oleh DTO F01 dan F04 (tes lintas-modul), begitu pula `productLine` oleh F02 dan `status` oleh F05.
+- [x] Nilai `country`/`continent` di respons diterima apa adanya oleh DTO F01 dan F04 (tes lintas-modul), begitu pula `productLine` oleh F02 dan `status` oleh F05.
 
 ## Definisi Selesai
 

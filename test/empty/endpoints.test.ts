@@ -14,6 +14,8 @@ const ENDPOINTS = [
   '/dashboard/growth?year=2004',
   '/dashboard/customers',
   '/dashboard/customers?year=2004&continent=Asia&country=Japan',
+  '/dashboard/operations',
+  '/dashboard/operations?year=2004&status=On%20Hold',
 ];
 
 const get = useApi();
