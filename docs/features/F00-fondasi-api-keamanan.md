@@ -7,7 +7,7 @@
 | Pasangan FE | Tidak ada pekerjaan FE (lihat `docs/features/F00-fondasi-api-keamanan.md` di repo FE) |
 | Bergantung pada | – (fitur pertama yang dikerjakan di BE) |
 | Dipakai oleh | Semua fitur BE (F01–F07) |
-| Status | ⬜ Belum mulai |
+| Status | 🟩 Selesai (belum dirilis) |
 
 ## Tujuan
 
@@ -78,28 +78,28 @@ Router didaftarkan di `src/app.ts` setelah `api.use(apiLimiter)`, mis. `api.use(
 Catatan: belum ada endpoint di branch ini, jadi kriteria yang butuh endpoint (422, header cache, DB kosong 200) dibuktikan dengan unit test skema dan cache; pembuktian pada endpoint nyata dilakukan di F06/F01.
 
 - [ ] 1. Buat branch `feat/f00-fondasi-api` dari `main` terbaru; ubah status F00 di `docs/PRD.md` §7 menjadi 🟨.
-- [ ] 2. `src/lib/money.ts`: `toNumber()` untuk `bigint`, `Decimal`, dan `null`; pembulatan 2 desimal untuk uang dan persen. Tambah `money.test.ts`.
-- [ ] 3. `src/lib/continents.ts`: peta 27 negara → benua sesuai PRD §6 (Europe 16, North America 2, Asia 6, Oceania 2, Africa 1), fungsi pencari benua yang men-trim nama, dan daftar enum benua/negara. Tambah `continents.test.ts` (27 negara terpetakan, `"Norway  "` setelah trim).
-- [ ] 4. `src/lib/filters.ts`: `cacheKey(filter)` (key diurutkan, array diurutkan dan di-dedup, nilai kosong dibuang). Tambah `filters.test.ts`.
-- [ ] 5. `src/lib/sqlFilters.ts`: penyusun potongan WHERE berbasis `Prisma.sql`/`Prisma.join` untuk tahun, bulan, benua/negara (`TRIM(c.country)`), product line, status. Tambah tes untuk bentuk SQL dan parameter terikat.
-- [ ] 6. Skema validasi bersama untuk `year`, `month`, `continent`, `country`, `productLine`, `status` (usulan lokasi: `src/lib/querySchemas.ts`; tidak tertulis di dokumen asli). Tambah tes nilai valid dan tidak valid, termasuk `.strict()` menolak parameter tak dikenal.
-- [ ] 7. Konvensi cache: verifikasi `createTtlCache(5 * 60_000, 500)` dan `cacheKey` dipakai bersama; tes cache (panggilan kedua dengan filter sama tidak memanggil loader).
-- [ ] 8. Helper controller untuk header `Cache-Control: public, max-age=300` pada respons sukses saja (error tidak di-cache).
-- [ ] 9. Aturan Semgrep custom di `.semgrep/` yang menolak `$queryRawUnsafe` dan `$executeRaw*`, dengan file contoh pelanggaran untuk tes aturan. Tambahkan `--config .semgrep/` ke step SAST di `.github/workflows/ci.yml`.
-- [ ] 10. Harness tes angka emas: salin dump ke `test/fixtures/classicmodels.sql`, skrip `npm run test:golden`, dan job CI dengan service MariaDB yang mengimpor dump. Fitur berikutnya menambah asersi angkanya ke harness ini. (Catatan: `npm test` saat ini hanya menjalankan `vitest run --dir src`.)
-- [ ] 11. Tes kontrak: pemeriksa yang menolak kunci terlarang (`phone`, `addressLine*`, `postalCode`, `email`, `extension`, `contactFirstName`, `contactLastName`, `checkNumber`, `creditLimit`) di objek respons; dipakai ulang oleh tiap fitur.
-- [ ] 12. Jalankan `npm run lint`, `npm test`, `npm run build`; pastikan CI hijau.
-- [ ] 13. Commit terakhir: status F00 di `docs/PRD.md` §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
+- [x] 2. `src/lib/money.ts`: `toNumber()` untuk `bigint`, `Decimal`, dan `null`; pembulatan 2 desimal untuk uang dan persen. Tambah `money.test.ts`.
+- [x] 3. `src/lib/continents.ts`: peta 27 negara → benua sesuai PRD §6 (Europe 16, North America 2, Asia 6, Oceania 2, Africa 1), fungsi pencari benua yang men-trim nama, dan daftar enum benua/negara. Tambah `continents.test.ts` (27 negara terpetakan, `"Norway  "` setelah trim).
+- [x] 4. `src/lib/filters.ts`: `cacheKey(filter)` (key diurutkan, array diurutkan dan di-dedup, nilai kosong dibuang). Tambah `filters.test.ts`.
+- [x] 5. `src/lib/sqlFilters.ts`: penyusun potongan WHERE berbasis `Prisma.sql`/`Prisma.join` untuk tahun, bulan, benua/negara (`TRIM(c.country)`), product line, status. Tambah tes untuk bentuk SQL dan parameter terikat.
+- [x] 6. Skema validasi bersama untuk `year`, `month`, `continent`, `country`, `productLine`, `status` (usulan lokasi: `src/lib/querySchemas.ts`; tidak tertulis di dokumen asli). Tambah tes nilai valid dan tidak valid, termasuk `.strict()` menolak parameter tak dikenal.
+- [x] 7. Konvensi cache: verifikasi `createTtlCache(5 * 60_000, 500)` dan `cacheKey` dipakai bersama; tes cache (panggilan kedua dengan filter sama tidak memanggil loader).
+- [x] 8. Helper controller untuk header `Cache-Control: public, max-age=300` pada respons sukses saja (error tidak di-cache).
+- [x] 9. Aturan Semgrep custom di `.semgrep/` yang menolak `$queryRawUnsafe` dan `$executeRaw*`, dengan file contoh pelanggaran untuk tes aturan. Tambahkan `--config .semgrep/` ke step SAST di `.github/workflows/ci.yml`.
+- [x] 10. Harness tes angka emas: salin dump ke `test/fixtures/classicmodels.sql`, skrip `npm run test:golden`, dan job CI dengan service MariaDB yang mengimpor dump. Fitur berikutnya menambah asersi angkanya ke harness ini. (Catatan: `npm test` saat ini hanya menjalankan `vitest run --dir src`.)
+- [x] 11. Tes kontrak: pemeriksa yang menolak kunci terlarang (`phone`, `addressLine*`, `postalCode`, `email`, `extension`, `contactFirstName`, `contactLastName`, `checkNumber`, `creditLimit`) di objek respons; dipakai ulang oleh tiap fitur.
+- [x] 12. Jalankan `npm run lint`, `npm test`, `npm run build`; pastikan CI hijau.
+- [x] 13. Commit terakhir: status F00 di `docs/PRD.md` §7 menjadi 🟩, isi kolom PR; buka PR ke `main`.
 
 ## Kriteria Penerimaan
 
 - [ ] `GET /api/v1/dashboard/overview?foo=1` → 422 dengan `errors.query` atau `errors.foo`. (Dibuktikan pada endpoint nyata di F01; di F00 lewat tes skema.)
-- [ ] `?year=abc`, `?month=13`, `?continent=Mars` → 422.
-- [ ] `?productLine=Classic%20Cars&productLine=Ships` diterima sebagai array 2 item.
-- [ ] Dua request berurutan dengan filter sama: request kedua tidak menyentuh DB (dibuktikan dengan unit test cache atau log query dev).
+- [x] `?year=abc`, `?month=13`, `?continent=Mars` → 422.
+- [x] `?productLine=Classic%20Cars&productLine=Ships` diterima sebagai array 2 item.
+- [x] Dua request berurutan dengan filter sama: request kedua tidak menyentuh DB (dibuktikan dengan unit test cache atau log query dev).
 - [ ] Respons sukses memiliki header `Cache-Control: public, max-age=300`.
 - [ ] Semua endpoint 200 pada DB kosong.
-- [ ] Semgrep custom rule menolak `$queryRawUnsafe` (dibuktikan dengan file contoh di test rule).
+- [x] Semgrep custom rule menolak `$queryRawUnsafe` (dibuktikan dengan file contoh di test rule).
 - [ ] Tidak ada field terlarang di respons mana pun (tes kontrak memeriksa kunci respons).
 
 ## Tes

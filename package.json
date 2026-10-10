@@ -22,9 +22,10 @@
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "lint": "eslint src --max-warnings 0",
+    "lint": "eslint src test --max-warnings 0",
     "format": "prettier --write src",
-    "prepare": "husky || exit 0"
+    "prepare": "husky || exit 0",
+    "test:golden": "vitest run --dir test/golden"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.10.0",
