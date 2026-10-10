@@ -93,14 +93,14 @@ Catatan: belum ada endpoint di branch ini, jadi kriteria yang butuh endpoint (42
 
 ## Kriteria Penerimaan
 
-- [ ] `GET /api/v1/dashboard/overview?foo=1` → 422 dengan `errors.query` atau `errors.foo`. (Dibuktikan pada endpoint nyata di F01; di F00 lewat tes skema.)
+- [x] `GET /api/v1/dashboard/overview?foo=1` → 422 dengan `errors.query` atau `errors.foo`. (Dibuktikan pada endpoint nyata di F01; di F00 lewat tes skema.)
 - [x] `?year=abc`, `?month=13`, `?continent=Mars` → 422.
 - [x] `?productLine=Classic%20Cars&productLine=Ships` diterima sebagai array 2 item.
 - [x] Dua request berurutan dengan filter sama: request kedua tidak menyentuh DB (dibuktikan dengan unit test cache atau log query dev).
-- [ ] Respons sukses memiliki header `Cache-Control: public, max-age=300`.
+- [x] Respons sukses memiliki header `Cache-Control: public, max-age=300`.
 - [x] Semua endpoint 200 pada DB kosong.
 - [x] Semgrep custom rule menolak `$queryRawUnsafe` (dibuktikan dengan file contoh di test rule).
-- [ ] Tidak ada field terlarang di respons mana pun (tes kontrak memeriksa kunci respons).
+- [x] Tidak ada field terlarang di respons mana pun (tes kontrak memeriksa kunci respons).
 
 ## Tes
 
