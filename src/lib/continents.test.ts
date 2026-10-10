@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTINENTS, COUNTRIES, continentOf, countriesIn } from './continents';
+import { CONTINENTS, COUNTRIES, continentOf, countriesIn, countryOptions } from './continents';
 
 describe('continents', () => {
   it('memetakan 27 negara sesuai PRD §6', () => {
@@ -19,5 +19,19 @@ describe('continents', () => {
 
   it('negara tak dikenal = null', () => {
     expect(continentOf('Mars')).toBeNull();
+  });
+});
+
+describe('countryOptions', () => {
+  it('trim, dedup, urut, dan membawa benua', () => {
+    expect(countryOptions(['Norway  ', 'USA', 'Norway', 'Australia'])).toEqual([
+      { country: 'Australia', continent: 'Oceania' },
+      { country: 'Norway', continent: 'Europe' },
+      { country: 'USA', continent: 'North America' },
+    ]);
+  });
+
+  it('negara di luar peta tidak ditawarkan', () => {
+    expect(countryOptions(['Atlantis'])).toEqual([]);
   });
 });

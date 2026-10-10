@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database';
 import { cached } from '../../lib/cache';
-import { CONTINENTS, continentOf, type Continent } from '../../lib/continents';
+import { CONTINENTS, countryOptions, type Continent } from '../../lib/continents';
 import { toNumber, type RawNumber } from '../../lib/money';
 
 // Pilihan filter untuk FE (F06), dari satu sumber: nilai yang ada di sini
@@ -13,17 +13,6 @@ export interface FiltersResponse {
   countries:    { country: string; continent: Continent }[];
   productLines: string[];
   statuses:     string[];
-}
-
-/** Negara dari DB (sudah di-trim) yang ada di peta benua, terurut. */
-export function toCountryOptions(names: string[]): FiltersResponse['countries'] {
-  return [...new Set(names.map((n) => n.trim()))]
-    .sort()
-    .flatMap((country) => {
-      const continent = continentOf(country);
-      // Negara di luar peta tidak ditawarkan: DTO akan menolaknya (422).
-      return continent ? [{ country, continent }] : [];
-    });
 }
 
 async function load(): Promise<FiltersResponse> {
@@ -47,7 +36,7 @@ async function load(): Promise<FiltersResponse> {
     dataRange:    { from: range?.from ?? null, to: range?.to ?? null },
     years:        years.map((r) => toNumber(r.year)),
     continents:   [...CONTINENTS],
-    countries:    toCountryOptions(countries.map((r) => r.country)),
+    countries:    countryOptions(countries.map((r) => r.country)),
     productLines: productLines.map((r) => r.productLine),
     statuses:     statuses.map((r) => r.status),
   };
